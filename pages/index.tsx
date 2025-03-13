@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
@@ -18,6 +18,7 @@ import {
   SheetClose,
   SheetTrigger
 } from "@/components/ui/sheet";
+import { useCodex } from "@/hooks/useCodex";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,17 @@ export default function Home() {
   const [codexNodeUrl, setCodexNodeUrl] = useState("http://localhost:8080/api/codex");
   const [wakuNodeUrl, setWakuNodeUrl] = useState("http://127.0.0.1:8645");
   const [wakuNodeType, setWakuNodeType] = useState("light");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Initialize Codex client with default URL
+  const { 
+    isNodeActive: isCodexNodeActive, 
+    isLoading: isCodexLoading,
+    updateBaseUrl: updateCodexUrl,
+    checkNodeStatus: checkCodexStatus,
+    error: codexError
+  } = useCodex(codexNodeUrl);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: () => {}, // No functionality, just UI
@@ -85,6 +97,30 @@ export default function Home() {
     setTimeout(() => setCopiedRoom(false), 2000);
   };
 
+  // Handle Codex URL change
+  const handleCodexUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCodexNodeUrl(e.target.value);
+  };
+
+  // Update Codex URL when Save button is clicked
+  const handleSaveConfig = () => {
+    // Basic URL validation
+    if (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http')) {
+      alert('Please enter a valid URL starting with http:// or https://');
+      return;
+    }
+    
+    setIsSaving(true);
+    updateCodexUrl(codexNodeUrl);
+    
+    // Show success indicator briefly
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      setSaveSuccess(false);
+    }, 2000);
+  };
+
   return (
     <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background flex flex-col dark`}>
       <Head>
@@ -105,7 +141,7 @@ export default function Home() {
                 <span className="font-bold text-lg tracking-tight font-mono">FileShare</span>
               </div>
               <div className="hidden md:flex items-center h-6 px-2.5 rounded-full bg-muted/60 border border-border text-xs font-medium text-muted-foreground font-mono">
-                v1-alpha
+                alpha
               </div>
             </div>
             
@@ -188,7 +224,13 @@ export default function Home() {
                           </div>
                           <h3 className="text-base font-medium font-mono">CODEX_SETTINGS</h3>
                         </div>
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                        {isCodexLoading ? (
+                          <div className="w-2 h-2 rounded-full bg-amber-700/70 animate-pulse" title="Checking node status..."></div>
+                        ) : isCodexNodeActive ? (
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Node is active"></div>
+                        ) : (
+                          <div className="w-2 h-2 rounded-full bg-rose-800/80" title="Node is not active"></div>
+                        )}
                       </div>
                       
                       <div className="space-y-4 pl-2 ml-2 border-l border-border">
@@ -197,13 +239,54 @@ export default function Home() {
                           <Input 
                             id="codex-url"
                             value={codexNodeUrl}
-                            onChange={(e) => setCodexNodeUrl(e.target.value)}
+                            onChange={handleCodexUrlChange}
                             placeholder="http://localhost:8080/api/codex"
                             className="font-mono text-sm bg-card/70"
                           />
-                          <p className="text-xs text-muted-foreground font-mono">
-                            Codex node API endpoint URL
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground font-mono">
+                              Codex node API endpoint URL
+                            </p>
+                            <div className="flex items-center gap-1">
+                              {isCodexNodeActive ? (
+                                <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-xs text-rose-700/90 font-mono flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-800/80"></span>
+                                  {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                </span>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => checkCodexStatus(true)}
+                                className="h-6 w-6 p-0 rounded-full"
+                                title="Refresh node status"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                  <path d="M21 3v5h-5"></path>
+                                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                  <path d="M3 21v-5h5"></path>
+                                </svg>
+                              </Button>
+                            </div>
+                          </div>
+                          {codexError && (
+                            <p className="text-xs text-rose-700/90 font-mono mt-1 flex items-center gap-1">
+                              <AlertCircle size={12} />
+                              Error: {codexError}
+                            </p>
+                          )}
+                          {!isCodexNodeActive && !isCodexLoading && !codexError && (
+                            <p className="text-xs text-amber-700/80 font-mono mt-1 flex items-center gap-1">
+                              <AlertCircle size={12} />
+                              Codex node is not running in the API endpoint
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -217,7 +300,7 @@ export default function Home() {
                           </div>
                           <h3 className="text-base font-medium font-mono">WAKU_SETTINGS</h3>
                         </div>
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                        <div className="w-2 h-2 rounded-full bg-primary/80 animate-pulse" title="Status indicator"></div>
                       </div>
                       
                       <div className="space-y-4 pl-2 ml-2 border-l border-border">
@@ -259,7 +342,25 @@ export default function Home() {
                     <SheetClose asChild>
                       <Button variant="outline" className="flex-1 font-mono">CANCEL</Button>
                     </SheetClose>
-                    <Button className="flex-1 font-mono">SAVE_CONFIG</Button>
+                    <Button 
+                      className="flex-1 font-mono" 
+                      onClick={handleSaveConfig}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-4 w-4 rounded-full border-2 border-t-transparent border-white animate-spin"></span>
+                          SAVING...
+                        </span>
+                      ) : saveSuccess ? (
+                        <span className="flex items-center gap-2">
+                          <Check size={16} />
+                          SAVED!
+                        </span>
+                      ) : (
+                        "SAVE_CONFIG"
+                      )}
+                    </Button>
                   </SheetFooter>
                 </SheetContent>
               </Sheet>
@@ -281,7 +382,7 @@ export default function Home() {
                 <Upload size={36} className={`transition-colors ${isDragActive ? 'text-primary' : 'text-primary/70'}`} />
               </div>
               <h3 className="text-lg font-medium mt-2 font-mono">
-                {isDragActive ? "DROP_FILE.exe" : "UPLOAD_FILE.exe"}
+                {isDragActive ? "Drop to share" : "Drag and drop your files here"}
               </h3>
               <p className="text-sm text-muted-foreground mb-2 font-mono">
                 or click to select files
