@@ -4,11 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
-import { Header } from "@/components/header";
 import { useDropzone } from "react-dropzone";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetDescription,
+  SheetFooter,
+  SheetClose,
+  SheetTrigger
+} from "@/components/ui/sheet";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +53,9 @@ export default function Home() {
   const [roomId, setRoomId] = useState("XYZ123");
   const [isEditingRoom, setIsEditingRoom] = useState(false);
   const [copiedRoom, setCopiedRoom] = useState(false);
+  const [codexNodeUrl, setCodexNodeUrl] = useState("http://localhost:8080/api/codex");
+  const [wakuNodeUrl, setWakuNodeUrl] = useState("http://127.0.0.1:8645");
+  const [wakuNodeType, setWakuNodeType] = useState("light");
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: () => {}, // No functionality, just UI
@@ -80,111 +92,228 @@ export default function Home() {
         <meta name="description" content="Securely share files with anyone" />
       </Head>
       
-      {/* Header with logo and GitHub icon */}
-      <header className="w-full border-b border-border bg-card z-10 shadow-sm">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-primary/10">
-              <FileIcon size={20} className="text-primary" />
-            </div>
-            <span className="font-bold text-lg">FileShare</span>
-          </div>
-          
-          <a 
-            href="https://github.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="p-2 rounded-full hover:bg-accent transition-colors"
-            aria-label="View on GitHub"
-          >
-            <Github size={20} className="text-foreground" />
-          </a>
-        </div>
-      </header>
-      
       <main className="flex-1 flex flex-col p-4 md:p-8 relative z-0">
         <div className="w-full max-w-5xl mx-auto">
-          {/* Room ID Section - Now below header */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="inline-flex items-center gap-2 border border-border rounded-md px-4 py-2 bg-card shadow-sm">
-              <span className="text-sm font-medium text-secondary-foreground">Room ID:</span>
-              <div className="relative w-[180px]">
-                <Input
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  disabled={!isEditingRoom}
-                  className={`h-8 font-mono text-base px-3 ${isEditingRoom ? "border-primary ring-1 ring-primary/30" : ""}`}
-                />
+          {/* Combined Logo and Room ID Section */}
+          <div className="flex flex-col md:flex-row items-center justify-between mb-8 pb-4 gap-4">
+            {/* Logo */}
+            <div className="flex items-center gap-3 group md:w-1/4">
+              <div className="p-2 rounded-lg bg-primary/15 shadow-sm group-hover:bg-primary/20 transition-all duration-300 border border-primary/10">
+                <Terminal size={22} className="text-primary group-hover:scale-110 transition-transform duration-300" />
               </div>
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setIsEditingRoom(!isEditingRoom)}
-                  className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground"
-                  aria-label={isEditingRoom ? "Save room ID" : "Edit room ID"}
-                >
-                  {isEditingRoom ? <Check size={16} className="text-primary" /> : <Edit size={16} />}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleCopyRoomId}
-                  className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground"
-                  aria-label="Copy room ID"
-                >
-                  {copiedRoom ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                </Button>
+              <div className="flex items-center">
+                <span className="font-bold text-lg tracking-tight font-mono">FileShare</span>
               </div>
+              <div className="hidden md:flex items-center h-6 px-2.5 rounded-full bg-muted/60 border border-border text-xs font-medium text-muted-foreground font-mono">
+                v1-alpha
+              </div>
+            </div>
+            
+            {/* Room ID - Centered */}
+            <div className="flex items-center justify-center md:w-2/4 w-full">
+              <div className="inline-flex items-center gap-2 border border-border rounded-md px-4 py-2 bg-card shadow-sm w-full md:max-w-[350px] relative overflow-hidden">
+                <span className="text-sm font-medium text-secondary-foreground whitespace-nowrap font-mono">Room ID:</span>
+                <div className="relative w-full md:w-[180px]">
+                  <Input
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    disabled={!isEditingRoom}
+                    className={`h-8 font-mono text-base px-3 ${isEditingRoom ? "border-primary ring-1 ring-primary/30" : ""} bg-opacity-70`}
+                  />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsEditingRoom(!isEditingRoom)}
+                    className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground"
+                    aria-label={isEditingRoom ? "Save room ID" : "Edit room ID"}
+                  >
+                    {isEditingRoom ? <Check size={16} className="text-primary" /> : <Edit size={16} />}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleCopyRoomId}
+                    className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground"
+                    aria-label="Copy room ID"
+                  >
+                    {copiedRoom ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  </Button>
+                </div>
+                {/* Scanline effect */}
+                <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
+              </div>
+            </div>
+            
+            {/* Icons */}
+            <div className="flex items-center gap-3 shrink-0 md:w-1/4 md:justify-end">
+              <a 
+                href="https://github.com" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2.5 rounded-full hover:bg-accent/80 hover:scale-105 transition-all duration-200 flex items-center justify-center border border-primary/20"
+                aria-label="View on GitHub"
+              >
+                <Github size={20} className="text-primary" />
+              </a>
+              
+              {/* Settings Sheet */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button
+                    className="p-2.5 rounded-full hover:bg-accent/80 hover:scale-105 transition-all duration-200 flex items-center justify-center relative border border-primary/20"
+                    aria-label="Open settings"
+                  >
+                    <Settings size={20} className="text-primary" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="p-5">
+                  <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
+                  <SheetHeader className="px-1 pb-4 mb-6 border-b border-border">
+                    <SheetTitle className="text-xl font-mono">SYSTEM_CONFIG</SheetTitle>
+                    <SheetDescription className="text-sm text-muted-foreground font-mono">
+                      Configure Codex and Waku settings
+                    </SheetDescription>
+                  </SheetHeader>
+                  
+                  <div className="space-y-8 px-1">
+                    {/* Codex Settings */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-primary/10">
+                            <Server size={16} className="text-primary" />
+                          </div>
+                          <h3 className="text-base font-medium font-mono">CODEX_SETTINGS</h3>
+                        </div>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                      </div>
+                      
+                      <div className="space-y-4 pl-2 ml-2 border-l border-border">
+                        <div className="space-y-2">
+                          <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
+                          <Input 
+                            id="codex-url"
+                            value={codexNodeUrl}
+                            onChange={(e) => setCodexNodeUrl(e.target.value)}
+                            placeholder="http://localhost:8080/api/codex"
+                            className="font-mono text-sm bg-card/70"
+                          />
+                          <p className="text-xs text-muted-foreground font-mono">
+                            Codex node API endpoint URL
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Waku Settings */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-primary/10">
+                            <Radio size={16} className="text-primary" />
+                          </div>
+                          <h3 className="text-base font-medium font-mono">WAKU_SETTINGS</h3>
+                        </div>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                      </div>
+                      
+                      <div className="space-y-4 pl-2 ml-2 border-l border-border">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium font-mono">NODE_TYPE</label>
+                          <Tabs 
+                            value={wakuNodeType} 
+                            onValueChange={setWakuNodeType}
+                            className="w-full"
+                          >
+                            <TabsList className="grid w-full grid-cols-2 font-mono">
+                              <TabsTrigger value="light">LIGHT_NODE</TabsTrigger>
+                              <TabsTrigger value="relay">RELAY_NODE</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            Select Waku node type
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label htmlFor="waku-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
+                          <Input 
+                            id="waku-url"
+                            value={wakuNodeUrl}
+                            onChange={(e) => setWakuNodeUrl(e.target.value)}
+                            placeholder="http://127.0.0.1:8645"
+                            className="font-mono text-sm bg-card/70"
+                          />
+                          <p className="text-xs text-muted-foreground font-mono">
+                            nwaku node API endpoint URL
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <SheetFooter className="mt-8 pt-4 border-t border-border flex gap-2">
+                    <SheetClose asChild>
+                      <Button variant="outline" className="flex-1 font-mono">CANCEL</Button>
+                    </SheetClose>
+                    <Button className="flex-1 font-mono">SAVE_CONFIG</Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
 
           {/* Upload Area */}
           <div 
             {...getRootProps()} 
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all mb-8 bg-card shadow-sm ${
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all mb-8 bg-card shadow-sm relative overflow-hidden ${
               isDragActive 
                 ? "border-primary bg-accent scale-[0.99]" 
                 : "border-border hover:border-primary/50 hover:bg-accent/50"
             }`}
           >
             <input {...getInputProps()} />
-            <div className="flex flex-col items-center justify-center gap-3">
+            <div className="flex flex-col items-center justify-center gap-3 relative z-10">
               <div className={`p-4 rounded-full bg-accent transition-transform ${isDragActive ? 'scale-110' : ''}`}>
                 <Upload size={36} className={`transition-colors ${isDragActive ? 'text-primary' : 'text-primary/70'}`} />
               </div>
-              <h3 className="text-lg font-medium mt-2">
-                {isDragActive ? "Drop the file here" : "Drag & drop files here"}
+              <h3 className="text-lg font-medium mt-2 font-mono">
+                {isDragActive ? "DROP_FILE.exe" : "UPLOAD_FILE.exe"}
               </h3>
-              <p className="text-sm text-muted-foreground mb-2">
+              <p className="text-sm text-muted-foreground mb-2 font-mono">
                 or click to select files
               </p>
-              <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground">
-                Maximum file size: 100MB
+              <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-mono border border-primary/10">
+                MAX_SIZE=100MB
               </div>
             </div>
+            {/* Scanline effect */}
+            <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
           </div>
 
           {/* Sent and Received Files Tabs */}
           <Tabs defaultValue="sent" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-2 mb-4 font-mono">
               <TabsTrigger value="sent" className="flex items-center gap-2">
                 <Upload size={16} />
-                Sent Files
+                SENT_FILES
               </TabsTrigger>
               <TabsTrigger value="received" className="flex items-center gap-2">
                 <Download size={16} />
-                Received Files
+                RECEIVED_FILES
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="sent">
-              <Card className="shadow-sm border-border">
+              <Card className="shadow-sm border-border relative overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border bg-card">
-                  <CardTitle className="text-lg">Files You've Sent</CardTitle>
+                  <CardTitle className="text-lg font-mono">Files You've Sent</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
-                  <div className="h-[250px] overflow-y-auto pr-2 p-4">
+                  <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
                     {mockSentFiles.length > 0 ? (
                       <div className="space-y-3">
                         {mockSentFiles.map((file) => (
@@ -194,8 +323,8 @@ export default function Home() {
                                 {getFileIcon(file.type)}
                               </div>
                               <div>
-                                <p className="font-medium text-sm">{file.name}</p>
-                                <p className="text-xs text-muted-foreground">{file.size} MB • {file.timestamp}</p>
+                                <p className="font-medium text-sm font-mono">{file.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
@@ -212,8 +341,8 @@ export default function Home() {
                                 <FileText size={24} />
                               </div>
                               <div>
-                                <p className="font-medium text-sm">additional-file-{id}.txt</p>
-                                <p className="text-xs text-muted-foreground">1.2 MB • 2023-06-16 09:{id}0</p>
+                                <p className="font-medium text-sm font-mono">additional-file-{id}.txt</p>
+                                <p className="text-xs text-muted-foreground font-mono">1.2 MB • 2023-06-16 09:{id}0</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
@@ -224,21 +353,23 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-muted-foreground">No files sent yet</p>
+                        <p className="text-muted-foreground font-mono">No files sent yet</p>
                       </div>
                     )}
                   </div>
                 </CardContent>
+                {/* Scanline effect */}
+                <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </Card>
             </TabsContent>
             
             <TabsContent value="received">
-              <Card className="shadow-sm border-border">
+              <Card className="shadow-sm border-border relative overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border bg-card">
-                  <CardTitle className="text-lg">Files You've Received</CardTitle>
+                  <CardTitle className="text-lg font-mono">Files You've Received</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
-                  <div className="h-[250px] overflow-y-auto pr-2 p-4">
+                  <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
                     {mockReceivedFiles.length > 0 ? (
                       <div className="space-y-3">
                         {mockReceivedFiles.map((file) => (
@@ -248,8 +379,8 @@ export default function Home() {
                                 {getFileIcon(file.type)}
                               </div>
                               <div>
-                                <p className="font-medium text-sm">{file.name}</p>
-                                <p className="text-xs text-muted-foreground">{file.size} MB • {file.timestamp}</p>
+                                <p className="font-medium text-sm font-mono">{file.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
@@ -266,8 +397,8 @@ export default function Home() {
                                 <Image size={24} />
                               </div>
                               <div>
-                                <p className="font-medium text-sm">received-image-{id}.png</p>
-                                <p className="text-xs text-muted-foreground">3.{id} MB • 2023-06-17 10:{id}5</p>
+                                <p className="font-medium text-sm font-mono">received-image-{id}.png</p>
+                                <p className="text-xs text-muted-foreground font-mono">3.{id} MB • 2023-06-17 10:{id}5</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
@@ -278,22 +409,18 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-muted-foreground">No files received yet</p>
+                        <p className="text-muted-foreground font-mono">No files received yet</p>
                       </div>
                     )}
                   </div>
                 </CardContent>
+                {/* Scanline effect */}
+                <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
       </main>
-      
-      <footer className="border-t border-border py-6 mt-16 relative z-0">
-        <div className="container text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} FileShare. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 }

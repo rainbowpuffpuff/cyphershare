@@ -5,26 +5,26 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Dark theme */
-  --background: #000000;
-  --foreground: #ffffff;
-  --card: #121212;
-  --card-foreground: #ffffff;
-  --popover: #121212;
-  --popover-foreground: #ffffff;
-  --primary: #5c7cfa;
-  --primary-foreground: #ffffff;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #ffffff;
-  --muted: #1a1a1a;
-  --muted-foreground: #a0a0a0;
-  --accent: #1c2a4e;
-  --accent-foreground: #5c7cfa;
-  --destructive: #ff4d4d;
-  --destructive-foreground: #ffffff;
-  --border: #333333;
-  --input: #333333;
-  --ring: #5c7cfa;
+  /* Cypherpunk Cathode Display Theme */
+  --background: #2d322c;
+  --foreground: #74b776;
+  --card: #232820;
+  --card-foreground: #74b776;
+  --popover: #232820;
+  --popover-foreground: #74b776;
+  --primary: #74b776;
+  --primary-foreground: #1a1f19;
+  --secondary: #3a4038;
+  --secondary-foreground: #a4d7a6;
+  --muted: #3a4038;
+  --muted-foreground: #5a9c5c;
+  --accent: #2a3628;
+  --accent-foreground: #74b776;
+  --destructive: #e05252;
+  --destructive-foreground: #1a1f19;
+  --border: #3d4a3c;
+  --input: #3d4a3c;
+  --ring: #74b776;
   --radius: 0.5rem;
 }
 
@@ -59,7 +59,88 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  /* Add cathode display effect */
+  text-shadow: 0 0 2px rgba(116, 183, 118, 0.6);
+  position: relative;
+}
+
+/* Add scanline effect for the cathode display look */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.03) 0px,
+    rgba(0, 0, 0, 0.03) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.15;
+}
+
+/* Add subtle glow effect */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(116, 183, 118, 0.05) 0%,
+    rgba(45, 50, 44, 0) 70%
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* Scanline background class for components */
+.bg-scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1) 0px,
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+}
+
+/* Add subtle CRT flicker animation */
+@keyframes crt-flicker {
+  0% {
+    opacity: 0.98;
+  }
+  2% {
+    opacity: 0.9;
+  }
+  4% {
+    opacity: 0.98;
+  }
+  50% {
+    opacity: 0.98;
+  }
+  52% {
+    opacity: 0.94;
+  }
+  54% {
+    opacity: 0.98;
+  }
+  100% {
+    opacity: 0.98;
+  }
+}
+
+/* Apply flicker to all elements with primary color */
+.text-primary {
+  animation: crt-flicker 8s infinite;
 }
 
 @layer base {
@@ -68,5 +149,10 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Add monospace font for the terminal look */
+  input, button, textarea, select {
+    font-family: var(--font-mono);
   }
 }
