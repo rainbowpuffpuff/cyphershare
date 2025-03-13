@@ -63,5 +63,6 @@ export function useCodex(initialUrl?: string) {
     checkNodeStatus,
     updateBaseUrl,
     baseUrl: client.getBaseUrl(),
+    getNodeInfo: client.getNodeInfo.bind(client),
   };
 } 

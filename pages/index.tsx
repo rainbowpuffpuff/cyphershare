@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
@@ -59,6 +59,7 @@ export default function Home() {
   const [wakuNodeType, setWakuNodeType] = useState("light");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [nodeInfo, setNodeInfo] = useState<any | null>(null);
   
   // Initialize Codex client with default URL
   const { 
@@ -66,8 +67,25 @@ export default function Home() {
     isLoading: isCodexLoading,
     updateBaseUrl: updateCodexUrl,
     checkNodeStatus: checkCodexStatus,
-    error: codexError
+    error: codexError,
+    getNodeInfo
   } = useCodex(codexNodeUrl);
+
+  // Fetch node info when node is active
+  useEffect(() => {
+    if (isCodexNodeActive && !isCodexLoading) {
+      const fetchNodeInfo = async () => {
+        const info = await getNodeInfo();
+        if (info) {
+          setNodeInfo(info);
+        }
+      };
+      
+      fetchNodeInfo();
+    } else {
+      setNodeInfo(null);
+    }
+  }, [isCodexNodeActive, isCodexLoading, getNodeInfo]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: () => {}, // No functionality, just UI
@@ -205,7 +223,7 @@ export default function Home() {
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
                   </button>
                 </SheetTrigger>
-                <SheetContent side="right" className="p-5">
+                <SheetContent side="right" className="p-5 flex flex-col">
                   <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
                   <SheetHeader className="px-1 pb-4 mb-6 border-b border-border">
                     <SheetTitle className="text-xl font-mono">SYSTEM_CONFIG</SheetTitle>
@@ -214,7 +232,7 @@ export default function Home() {
                     </SheetDescription>
                   </SheetHeader>
                   
-                  <div className="space-y-8 px-1">
+                  <div className="space-y-8 px-1 flex-1 overflow-y-auto">
                     {/* Codex Settings */}
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 justify-between">
@@ -229,7 +247,7 @@ export default function Home() {
                         ) : isCodexNodeActive ? (
                           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Node is active"></div>
                         ) : (
-                          <div className="w-2 h-2 rounded-full bg-rose-800/80" title="Node is not active"></div>
+                          <div className="w-2 h-2 rounded-full bg-amber-600/80" title="Node is not active"></div>
                         )}
                       </div>
                       
@@ -254,8 +272,8 @@ export default function Home() {
                                   ACTIVE
                                 </span>
                               ) : (
-                                <span className="text-xs text-rose-700/90 font-mono flex items-center gap-1">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-800/80"></span>
+                                <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
                                   {isCodexLoading ? "CHECKING" : "OFFLINE"}
                                 </span>
                               )}
@@ -276,16 +294,42 @@ export default function Home() {
                             </div>
                           </div>
                           {codexError && (
-                            <p className="text-xs text-rose-700/90 font-mono mt-1 flex items-center gap-1">
+                            <p className="text-xs text-amber-600/90 font-mono mt-1 flex items-center gap-1">
                               <AlertCircle size={12} />
                               Error: {codexError}
                             </p>
                           )}
                           {!isCodexNodeActive && !isCodexLoading && !codexError && (
-                            <p className="text-xs text-amber-700/80 font-mono mt-1 flex items-center gap-1">
+                            <p className="text-xs text-amber-600/90 font-mono mt-1 flex items-center gap-1">
                               <AlertCircle size={12} />
                               Codex node is not running in the API endpoint
                             </p>
+                          )}
+                          
+                          {/* Display Node ID and Version when active */}
+                          {isCodexNodeActive && nodeInfo && (
+                            <div className="mt-3 p-2 bg-card/50 border border-primary/10 rounded-md">
+                              <div className="flex items-center gap-1 mb-1">
+                                <Info size={12} className="text-primary/70" />
+                                <span className="text-xs font-medium text-primary/90 font-mono">NODE_INFO</span>
+                              </div>
+                              <div className="space-y-1 pl-4 border-l border-primary/10">
+                                <p className="text-xs font-mono flex items-center justify-between">
+                                  <span className="text-muted-foreground">ID:</span>
+                                  <span className="text-primary/80 truncate max-w-[180px]" title={nodeInfo.id}>
+                                    {nodeInfo.id.substring(0, 10)}...{nodeInfo.id.substring(nodeInfo.id.length - 4)}
+                                  </span>
+                                </p>
+                                {nodeInfo.codex && (
+                                  <p className="text-xs font-mono flex items-center justify-between">
+                                    <span className="text-muted-foreground">VERSION:</span>
+                                    <span className="text-primary/80">
+                                      {nodeInfo.codex.version} ({nodeInfo.codex.revision.substring(0, 7)})
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -338,7 +382,7 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  <SheetFooter className="mt-8 pt-4 border-t border-border flex gap-2">
+                  <SheetFooter className="mt-8 pt-4 border-t border-border flex gap-2 shrink-0">
                     <SheetClose asChild>
                       <Button variant="outline" className="flex-1 font-mono">CANCEL</Button>
                     </SheetClose>
