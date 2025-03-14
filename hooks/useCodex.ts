@@ -64,5 +64,6 @@ export function useCodex(initialUrl?: string) {
     updateBaseUrl,
     baseUrl: client.getBaseUrl(),
     getNodeInfo: client.getNodeInfo.bind(client),
+    getCodexClient: () => getCodexClient(),
   };
 } 

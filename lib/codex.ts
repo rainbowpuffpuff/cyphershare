@@ -209,6 +209,126 @@ export class CodexClient {
       };
     }
   }
+
+  /**
+   * Upload a file to the Codex node
+   * @param file - The file to upload
+   * @param onProgress - Optional callback for upload progress
+   * @returns Promise resolving to the upload response or error
+   */
+  public async uploadFile(
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<{ success: boolean; id?: string; error?: string }> {
+    try {
+      const url = `${this.baseUrl}/v1/data`;
+      
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        // Set up progress tracking
+        if (onProgress) {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              const percentComplete = Math.round((event.loaded / event.total) * 100);
+              onProgress(percentComplete);
+            }
+          });
+        }
+        
+        xhr.open('POST', url, true);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+        
+        xhr.onload = function() {
+          // Log the raw response text first, before any parsing
+          console.log('=== RAW CODEX UPLOAD RESPONSE ===');
+          console.log('Status:', xhr.status);
+          console.log('Response Text:', xhr.responseText);
+          console.log('Response Headers:', xhr.getAllResponseHeaders());
+          console.log('===============================');
+          
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              // Try to parse as JSON
+              let response;
+              try {
+                response = JSON.parse(xhr.responseText);
+                console.log('Parsed JSON response:', response);
+              } catch (parseError) {
+                console.log('Response is not JSON, using raw text');
+                response = xhr.responseText.trim();
+              }
+              
+              // Extract the CID from the response
+              const cid = typeof response === 'object' ? 
+                (response.id || response.cid || 
+                (response.data && (response.data.id || response.data.cid))) : 
+                response;
+              
+              if (!cid) {
+                console.warn('No CID found in Codex upload response:', response);
+                // Try to extract CID from raw response if it's just a string
+                const rawResponse = xhr.responseText.trim();
+                if (rawResponse && !rawResponse.includes('{') && !rawResponse.includes('[')) {
+                  console.log('Using raw response as CID:', rawResponse);
+                  resolve({ 
+                    success: true, 
+                    id: rawResponse
+                  });
+                  return;
+                }
+              } else {
+                console.log('%c File uploaded successfully! CID: ' + cid, 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+              }
+              
+              resolve({ 
+                success: true, 
+                id: cid
+              });
+            } catch (e) {
+              // If response is not JSON but status is success
+              console.warn('Failed to parse Codex upload response:', e);
+              console.log('Raw response text:', xhr.responseText);
+              
+              // If the response is a plain string, it might be the CID directly
+              const rawText = xhr.responseText.trim();
+              resolve({ 
+                success: true, 
+                id: rawText // Use the raw text as the ID
+              });
+            }
+          } else {
+            console.error('Upload failed with status:', xhr.status);
+            let errorMessage = 'Upload failed';
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              errorMessage = errorResponse.error || errorMessage;
+              console.error('Error response:', errorResponse);
+            } catch (e) {
+              // If error response is not JSON
+              errorMessage = `Upload failed with status ${xhr.status}: ${xhr.responseText}`;
+              console.error('Error response (not JSON):', xhr.responseText);
+            }
+            resolve({ success: false, error: errorMessage });
+          }
+        };
+        
+        xhr.onerror = function() {
+          console.error('Network error during upload');
+          resolve({ success: false, error: 'Network error occurred during upload' });
+        };
+        
+        xhr.send(file);
+      });
+    } catch (error) {
+      console.error('Exception during upload:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error during upload' 
+      };
+    }
+  }
 }
 
 // Create a singleton instance for use throughout the app
