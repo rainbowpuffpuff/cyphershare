@@ -19,6 +19,7 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 import { useCodex } from "@/hooks/useCodex";
+import axios from "axios";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -379,6 +380,81 @@ export default function Home() {
     } else {
       console.warn('No CID found for file:', fileId);
       setUploadError('No CID available for this file');
+      setTimeout(() => setUploadError(null), 5000);
+    }
+  };
+
+  // Handle file download
+  const handleDownloadFile = async (fileId: string) => {
+    const file = sentFiles.find(f => f.id.toString() === fileId) || receivedFiles.find(f => f.id.toString() === fileId);
+    if (file && file.fileId) {
+      // Debug log for download
+      console.log('Downloading file:', {
+        fileId: fileId,
+        file: file,
+        cid: file.fileId
+      });
+      
+      try {
+        setCopySuccess(`Fetching file metadata...`);
+        
+        // Step 1: Get the file metadata
+        const metadataUrl = `${codexNodeUrl}/v1/data/${file.fileId}/network`;
+        console.log(`Fetching metadata from: ${metadataUrl}`);
+        
+        const metadataResponse = await axios.post(metadataUrl);
+        const { manifest } = metadataResponse.data;
+        const { filename, mimetype } = manifest;
+        
+        console.log('File metadata:', {
+          filename,
+          mimetype,
+          manifest
+        });
+        
+        // Step 2: Download the file content
+        setCopySuccess(`Downloading ${filename}...`);
+        const downloadUrl = `${codexNodeUrl}/v1/data/${file.fileId}/network/stream`;
+        console.log(`Downloading file from: ${downloadUrl}`);
+        
+        const fileResponse = await axios.get(downloadUrl, {
+          responseType: 'blob'
+        });
+        
+        // Step 3: Create a download link for the file
+        const blob = new Blob([fileResponse.data], { type: mimetype });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || file.name; // Use the filename from metadata or fallback to the file name we have
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show success message
+        setCopySuccess(`File "${filename || file.name}" downloaded successfully`);
+        setTimeout(() => setCopySuccess(null), 3000);
+      } catch (error: unknown) {
+        console.error('Error downloading file:', error);
+        let errorMessage = 'Failed to download file';
+        
+        if (axios.isAxiosError(error)) {
+          errorMessage += `: ${error.response?.status || ''} ${error.message}`;
+          console.error('API error details:', error.response?.data);
+        } else if (error instanceof Error) {
+          errorMessage += `: ${error.message}`;
+        }
+        
+        setUploadError(errorMessage);
+        setTimeout(() => setUploadError(null), 5000);
+      }
+    } else {
+      console.warn('No file data found for download:', fileId);
+      setUploadError('No file data available for download');
       setTimeout(() => setUploadError(null), 5000);
     }
   };
@@ -819,23 +895,38 @@ export default function Home() {
                                 <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
                               </div>
                             </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleCopyFileCid(file.id.toString())}
-                              className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
-                              disabled={!file.fileId}
-                              title={file.fileId ? "Copy file CID" : "No CID available"}
-                            >
-                              {copiedFileCid === file.id.toString() ? (
-                                <Check size={14} className="text-green-500" />
-                              ) : (
-                                <Copy size={14} />
-                              )}
-                              <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
-                                Copy CID
-                              </span>
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCopyFileCid(file.id.toString())}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                disabled={!file.fileId}
+                                title={file.fileId ? "Copy file CID" : "No CID available"}
+                              >
+                                {copiedFileCid === file.id.toString() ? (
+                                  <Check size={14} className="text-green-500" />
+                                ) : (
+                                  <Copy size={14} />
+                                )}
+                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                  Copy CID
+                                </span>
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDownloadFile(file.id.toString())}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                disabled={!file.fileId}
+                                title={file.fileId ? "Download file" : "No file available for download"}
+                              >
+                                <Download size={14} />
+                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                  Download File
+                                </span>
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -900,7 +991,14 @@ export default function Home() {
                                   Copy CID
                                 </span>
                               </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDownloadFile(file.id.toString())}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                disabled={!file.fileId}
+                                title={file.fileId ? "Download file" : "No file available for download"}
+                              >
                                 <Download size={14} />
                                 <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
                                   Download File
