@@ -484,7 +484,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background flex flex-col dark`}>
+    <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background flex flex-col dark terminal-display`}>
       <Head>
         <title>FileShare - Secure File Sharing</title>
         <meta name="description" content="Securely share files with anyone" />
@@ -492,10 +492,20 @@ export default function Home() {
       
       {/* Copy Success Toast */}
       {copySuccess && (
-        <div className="fixed bottom-4 right-4 p-3 bg-green-500/20 border border-green-500/30 rounded-md shadow-lg z-50 max-w-md">
+        <div className="fixed bottom-4 right-4 p-3 bg-green-500/20 border border-green-500/30 rounded-md shadow-lg z-50 max-w-md terminal-glow">
           <p className="text-xs text-green-500 font-mono flex items-center gap-1">
             <Check size={12} />
             {copySuccess}
+          </p>
+        </div>
+      )}
+      
+      {/* Upload Error Toast */}
+      {uploadError && (
+        <div className="fixed bottom-4 right-4 p-3 bg-amber-600/20 border border-amber-600/30 rounded-md shadow-lg z-50 max-w-md terminal-glow">
+          <p className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+            <AlertCircle size={12} />
+            {uploadError}
           </p>
         </div>
       )}
@@ -1028,6 +1038,51 @@ export default function Home() {
           </Tabs>
         </div>
       </main>
+      
+      <style jsx global>{`
+        .terminal-display {
+          font-family: var(--font-mono);
+          letter-spacing: 0.5px;
+        }
+        
+        .terminal-glow {
+          box-shadow: 0 0 10px rgba(6, 243, 145, 0.3);
+        }
+        
+        /* Add CRT screen curvature effect */
+        .terminal-display::before {
+          content: "";
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: radial-gradient(
+            ellipse at center,
+            transparent 50%,
+            rgba(0, 0, 0, 0.3) 100%
+          );
+          pointer-events: none;
+          z-index: 9996;
+        }
+        
+        /* Add subtle vignette effect */
+        .terminal-display::after {
+          content: "";
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: radial-gradient(
+            ellipse at center,
+            transparent 60%,
+            rgba(3, 33, 21, 0.4) 100%
+          );
+          pointer-events: none;
+          z-index: 9995;
+        }
+      `}</style>
     </div>
   );
 }
