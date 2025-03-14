@@ -157,54 +157,112 @@ export const useWaku = ({
   // Subscribe to messages
   const subscribeToMessages = async (lightNode: LightNode, messageDecoder: any, topic: string) => {
     try {
-      // Create the callback function to process incoming messages
-      const subscriptionCallback = async (wakuMessage: DecodedMessage) => {
-        if (!wakuMessage.payload) return;
+      console.log('Setting up message subscription for topic:', topic);
+      
+      // Create a simple callback that logs and forwards messages
+      const messageHandler = (wakuMessage: DecodedMessage) => {
+        if (!wakuMessage.payload) {
+          console.log('Received empty message payload');
+          return;
+        }
         
         try {
-          // Decode the message
-          const messageObj = FileMessage.decode(wakuMessage.payload) as unknown as WakuFileMessage;
-          console.log('Received file message:', messageObj);
+          console.log('Raw message received:', {
+            contentTopic: wakuMessage.contentTopic,
+            timestamp: new Date().toISOString(),
+            payloadLength: wakuMessage.payload.length
+          });
           
-          // Call the onFileReceived callback if provided
+          // Decode the message using protobuf
+          const decodedMessage = FileMessage.decode(wakuMessage.payload) as unknown as WakuFileMessage;
+          
+          console.log('Successfully decoded message:', {
+            fileName: decodedMessage.fileName,
+            sender: decodedMessage.sender,
+            fileId: decodedMessage.fileId,
+            timestamp: new Date(decodedMessage.timestamp).toISOString()
+          });
+          
+          // Call the callback if provided
           if (onFileReceived) {
-            onFileReceived(messageObj);
+            onFileReceived(decodedMessage);
           }
-        } catch (err) {
-          console.error('Error decoding message:', err);
+        } catch (decodeError) {
+          console.error('Failed to decode message:', decodeError);
+          console.log('Message payload (first 50 bytes):', 
+            new TextDecoder().decode(wakuMessage.payload.slice(0, 50)));
         }
       };
-
-      // Subscribe to messages using the filter protocol
-      console.log('Subscribing to filter messages on topic:', topic);
       
+      // Try multiple subscription methods to ensure compatibility with different Waku SDK versions
+      
+      // Method 1: Direct filter subscription (newer SDK versions)
       try {
-        // Direct subscription to the filter protocol
-        await lightNode.filter.subscribe(messageDecoder, subscriptionCallback);
-        console.log('Successfully subscribed to filter messages');
-      } catch (subscribeError) {
-        console.error('Direct filter subscription failed:', subscribeError);
-        
-        // Fallback approach - try alternative subscription methods
-        try {
-          console.log('Trying alternative subscription method...');
-          // @ts-ignore - API might have changed between versions
-          const sub = await lightNode.filter.createSubscription();
-          if (sub) {
-            await sub.subscribe([messageDecoder], subscriptionCallback);
-            setSubscription(sub);
-            console.log('Successfully subscribed using alternative method');
-          } else {
-            throw new Error('Failed to create subscription object');
-          }
-        } catch (fallbackError) {
-          console.error('All subscription methods failed:', fallbackError);
-          setError('Failed to subscribe to messages: ' + (fallbackError instanceof Error ? fallbackError.message : String(fallbackError)));
-        }
+        console.log('Attempting direct filter subscription...');
+        await lightNode.filter.subscribe(messageDecoder, messageHandler);
+        console.log('✅ Direct filter subscription successful');
+        return;
+      } catch (error1) {
+        console.warn('Direct filter subscription failed:', error1);
       }
+      
+      // Method 2: Using createSubscription (some SDK versions)
+      try {
+        console.log('Attempting subscription via createSubscription...');
+        // @ts-ignore - API might have changed between versions
+        const subscription = await lightNode.filter.createSubscription();
+        if (subscription) {
+          await subscription.subscribe([messageDecoder], messageHandler);
+          setSubscription(subscription);
+          console.log('✅ Subscription via createSubscription successful');
+          return;
+        }
+      } catch (error2) {
+        console.warn('createSubscription method failed:', error2);
+      }
+      
+      // Method 3: Using filter.subscribe with array (older SDK versions)
+      try {
+        console.log('Attempting subscription with decoder array...');
+        // @ts-ignore - API might have changed between versions
+        await lightNode.filter.subscribe([messageDecoder], messageHandler);
+        console.log('✅ Subscription with decoder array successful');
+        return;
+      } catch (error3) {
+        console.warn('Subscription with decoder array failed:', error3);
+      }
+      
+      // Method 4: Last resort - try to use any available method on the filter object
+      try {
+        console.log('Attempting to discover available filter methods...');
+        const filterMethods = Object.keys(lightNode.filter).filter(key => 
+          typeof (lightNode.filter as any)[key] === 'function' && 
+          (key.includes('subscribe') || key.includes('create'))
+        );
+        
+        console.log('Available filter methods:', filterMethods);
+        
+        if (filterMethods.includes('subscribe')) {
+          // Try with different argument patterns
+          try {
+            // @ts-ignore
+            await (lightNode.filter as any).subscribe(topic, messageHandler);
+            console.log('✅ Topic-based subscription successful');
+            return;
+          } catch (e) {
+            console.warn('Topic-based subscription failed:', e);
+          }
+        }
+      } catch (error4) {
+        console.warn('Method discovery failed:', error4);
+      }
+      
+      // If we get here, all subscription methods failed
+      throw new Error('All subscription methods failed');
+      
     } catch (err) {
-      console.error('Error in message subscription process:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error subscribing to messages');
+      console.error('❌ Error in message subscription process:', err);
+      setError('Failed to subscribe to messages: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -216,20 +274,42 @@ export const useWaku = ({
     fileId: string;
   }) => {
     if (!node || !encoder || !isConnected) {
-      console.error('Cannot send message: Waku node is not connected', { node: !!node, encoder: !!encoder, isConnected });
+      console.error('Cannot send message: Waku node is not connected', { 
+        node: !!node, 
+        encoder: !!encoder, 
+        isConnected,
+        peerCount
+      });
       setError('Waku node is not connected');
       return false;
     }
 
     try {
-      console.log('Preparing to send file message:', fileData);
+      console.log('🚀 Preparing to send file message:', fileData);
       
       // Generate a unique sender ID if not already available
       // This helps with identifying our own messages
-      const senderId = localStorage.getItem('wakuSenderId') || `user-${Math.random().toString(36).substring(2, 10)}`;
-      if (!localStorage.getItem('wakuSenderId')) {
-        localStorage.setItem('wakuSenderId', senderId);
-      }
+      const getTabSpecificSenderId = () => {
+        // Create a unique ID for this tab instance
+        const tabId = sessionStorage.getItem('wakuTabId') || `tab-${Math.random().toString(36).substring(2, 10)}`;
+        if (!sessionStorage.getItem('wakuTabId')) {
+          sessionStorage.setItem('wakuTabId', tabId);
+        }
+        
+        // Get or create the user ID from localStorage
+        const userId = localStorage.getItem('wakuUserId') || `user-${Math.random().toString(36).substring(2, 10)}`;
+        if (!localStorage.getItem('wakuUserId')) {
+          localStorage.setItem('wakuUserId', userId);
+        }
+        
+        // Combine them for a tab-specific sender ID
+        return `${userId}-${tabId}`;
+      };
+      
+      const senderId = getTabSpecificSenderId();
+      
+      // Store the current sender ID in sessionStorage for this tab only
+      sessionStorage.setItem('wakuSenderId', senderId);
       
       // Create a new message object
       const protoMessage = FileMessage.create({
@@ -244,27 +324,48 @@ export const useWaku = ({
       // Serialize the message using Protobuf
       const serializedMessage = FileMessage.encode(protoMessage).finish();
       
-      console.log('Sending message with payload size:', serializedMessage.length, 'bytes');
-      console.log('Message details:', {
+      console.log('📦 Message prepared:', {
         contentTopic,
         sender: senderId,
         fileName: fileData.fileName,
-        fileId: fileData.fileId
+        fileId: fileData.fileId,
+        payloadSize: serializedMessage.length,
+        timestamp: new Date().toISOString()
       });
 
+      // Check if we have peers before sending
+      const peers = await node.libp2p.getPeers();
+      if (peers.length === 0) {
+        console.warn('⚠️ No peers connected. Message might not be delivered.');
+      } else {
+        console.log(`✅ Connected to ${peers.length} peers for message delivery`);
+      }
+
       // Send the message using Light Push
+      console.log('Sending message via lightPush...');
       const result = await node.lightPush.send(encoder, {
         payload: serializedMessage,
       });
       
-      console.log('File message sent successfully:', result);
+      console.log('✅ File message sent successfully:', result);
+      
+      // For debugging: Try to receive our own message to verify it's formatted correctly
+      try {
+        console.log('Verifying message format by decoding our own message...');
+        const decodedMessage = FileMessage.decode(serializedMessage) as unknown as WakuFileMessage;
+        console.log('Message verification successful:', decodedMessage);
+      } catch (verifyError) {
+        console.error('⚠️ Message verification failed:', verifyError);
+        // Continue anyway as this is just a verification step
+      }
+      
       return true;
     } catch (err) {
-      console.error('Error sending file message:', err);
+      console.error('❌ Error sending file message:', err);
       setError(err instanceof Error ? err.message : 'Unknown error sending file message');
       return false;
     }
-  }, [node, encoder, isConnected, contentTopic]);
+  }, [node, encoder, isConnected, contentTopic, peerCount]);
 
   // Update room ID
   useEffect(() => {
@@ -325,6 +426,41 @@ export const useWaku = ({
     };
   }, [wakuNodeType, initWaku]);
 
+  // Function to manually reconnect
+  const reconnect = useCallback(async () => {
+    console.log('Manual reconnection requested');
+    
+    // Clean up existing connection
+    if (subscription) {
+      try {
+        subscription.unsubscribe();
+      } catch (e) {
+        console.warn('Error unsubscribing:', e);
+      }
+    }
+    
+    if (node) {
+      try {
+        await node.stop();
+      } catch (e) {
+        console.warn('Error stopping node:', e);
+      }
+    }
+    
+    // Reset state
+    setIsConnected(false);
+    setNode(null);
+    setEncoder(null);
+    setDecoder(null);
+    setSubscription(null);
+    setError(null);
+    
+    // Small delay before reconnecting
+    setTimeout(() => {
+      initWaku();
+    }, 1000);
+  }, [node, subscription, initWaku]);
+
   return {
     isConnecting,
     isConnected,
@@ -332,6 +468,7 @@ export const useWaku = ({
     sendFileMessage,
     peerCount,
     contentTopic,
+    reconnect
   };
 };
 

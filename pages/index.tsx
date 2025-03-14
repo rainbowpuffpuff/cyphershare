@@ -75,18 +75,49 @@ export default function Home() {
     getCodexClient
   } = useCodex(codexNodeUrl);
 
+  // Add a debug state for Waku messages
+  const [wakuDebugVisible, setWakuDebugVisible] = useState(false);
+  const [wakuDebugLogs, setWakuDebugLogs] = useState<{
+    type: 'info' | 'error' | 'success';
+    message: string;
+    timestamp: string;
+  }[]>([]);
+
+  // Function to add a debug log
+  const addWakuDebugLog = useCallback((type: 'info' | 'error' | 'success', message: string) => {
+    setWakuDebugLogs(prev => [
+      {
+        type,
+        message,
+        timestamp: new Date().toLocaleTimeString()
+      },
+      ...prev.slice(0, 19) // Keep only the last 20 logs
+    ]);
+  }, []);
+
   // Handle file received via Waku
   const handleFileReceived = useCallback((fileMessage: WakuFileMessage) => {
-    // Get our sender ID from localStorage
-    const ourSenderId = localStorage.getItem('wakuSenderId');
+    // Get our tab-specific sender ID from sessionStorage
+    const ourSenderId = sessionStorage.getItem('wakuSenderId');
     
-    // Check if this is a file we sent (by checking sender ID or fileId in sentFiles)
-    const isSentByUs = (ourSenderId && fileMessage.sender === ourSenderId) || 
-                       sentFiles.some(file => file.fileId === fileMessage.fileId);
+    // Add to debug logs
+    addWakuDebugLog('info', `Message received: ${fileMessage.fileName} from ${fileMessage.sender.substring(0, 8)}`);
+    
+    // Check if this is a file we sent (by checking our tab-specific sender ID)
+    const isSentByUs = ourSenderId && fileMessage.sender === ourSenderId;
     
     // If we sent this file, don't add it to received files
     if (isSentByUs) {
       console.log('Ignoring file we sent:', fileMessage.fileName, 'from sender:', fileMessage.sender);
+      addWakuDebugLog('info', `Ignoring our own message: ${fileMessage.fileName}`);
+      return;
+    }
+    
+    // Also check if we already have this file in our sent files (as a backup check)
+    const isInSentFiles = sentFiles.some(file => file.fileId === fileMessage.fileId);
+    if (isInSentFiles) {
+      console.log('Ignoring file already in our sent files:', fileMessage.fileName);
+      addWakuDebugLog('info', `Ignoring file already in our sent files: ${fileMessage.fileName}`);
       return;
     }
     
@@ -96,36 +127,43 @@ export default function Home() {
       fileId: fileMessage.fileId
     });
     
+    addWakuDebugLog('success', `New file from peer: ${fileMessage.fileName}`);
+    
     // Check if we already have this file in our received files
     const fileExists = receivedFiles.some(file => file.fileId === fileMessage.fileId);
     
-    if (!fileExists) {
-      // Create a new file item
-      const timestamp = new Date(fileMessage.timestamp).toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      
-      const newFile: FileItem = {
-        id: `received-${fileMessage.timestamp}-${fileMessage.fileName}`,
-        name: fileMessage.fileName,
-        size: fileMessage.fileSize,
-        type: fileMessage.fileType,
-        timestamp,
-        fileId: fileMessage.fileId
-      };
-      
-      // Add to received files
-      setReceivedFiles(prev => [newFile, ...prev]);
-      
-      // Show notification
-      setCopySuccess(`Received file: ${fileMessage.fileName}`);
-      setTimeout(() => setCopySuccess(null), 3000);
+    if (fileExists) {
+      addWakuDebugLog('info', `File already exists: ${fileMessage.fileName}`);
+      return;
     }
-  }, [receivedFiles, sentFiles]);
+    
+    // Create a new file item
+    const timestamp = new Date(fileMessage.timestamp).toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const newFile: FileItem = {
+      id: `received-${fileMessage.timestamp}-${fileMessage.fileName}`,
+      name: fileMessage.fileName,
+      size: fileMessage.fileSize,
+      type: fileMessage.fileType,
+      timestamp,
+      fileId: fileMessage.fileId
+    };
+    
+    // Add to received files
+    setReceivedFiles(prev => [newFile, ...prev]);
+    
+    // Show notification
+    setCopySuccess(`Received file: ${fileMessage.fileName}`);
+    setTimeout(() => setCopySuccess(null), 3000);
+    
+    addWakuDebugLog('success', `Added to received files: ${fileMessage.fileName}`);
+  }, [receivedFiles, sentFiles, addWakuDebugLog]);
 
   // Initialize Waku client
   const { 
@@ -134,7 +172,8 @@ export default function Home() {
     error: wakuError,
     sendFileMessage,
     peerCount: wakuPeerCount,
-    contentTopic: wakuContentTopic
+    contentTopic: wakuContentTopic,
+    reconnect: reconnectWaku
   } = useWaku({
     roomId,
     wakuNodeUrl,
@@ -431,33 +470,39 @@ export default function Home() {
     }
   };
   
-  // Test function to send a test message via Waku
+  // Enhanced test function for Waku messaging with debug logs
   const testWakuMessage = async () => {
     if (!isWakuConnected) {
       setUploadError("Waku is not connected. Please check your connection.");
+      addWakuDebugLog('error', 'Waku is not connected');
       setTimeout(() => setUploadError(null), 5000);
       return;
     }
     
     try {
-      console.log('Sending test message via Waku...');
+      addWakuDebugLog('info', 'Sending test message via Waku...');
       
       // Create a test message with timestamp to ensure uniqueness
-      const timestamp = new Date().toISOString();
-      const testFileName = `test-message-${Date.now()}.txt`;
+      const timestamp = Date.now();
+      const testFileName = `test-message-${timestamp}.txt`;
+      const testFileId = `test-${timestamp}`;
+      
+      addWakuDebugLog('info', `Created test message: ${testFileName} (ID: ${testFileId})`);
       
       // Send a test message via Waku
       const success = await sendFileMessage({
         fileName: testFileName,
         fileSize: 0.01, // Small dummy size
         fileType: 'text/plain',
-        fileId: `test-${Date.now()}` // Dummy file ID
+        fileId: testFileId // Dummy file ID
       });
       
       if (success) {
         setCopySuccess(`Test message sent successfully: ${testFileName}`);
+        addWakuDebugLog('success', `Message sent: ${testFileName}`);
       } else {
         setUploadError('Failed to send test message');
+        addWakuDebugLog('error', 'Failed to send test message');
       }
       
       setTimeout(() => {
@@ -467,6 +512,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error sending test Waku message:', error);
       setUploadError(`Test message failed: ${error instanceof Error ? error.message : String(error)}`);
+      addWakuDebugLog('error', `Test message failed: ${error instanceof Error ? error.message : String(error)}`);
       setTimeout(() => setUploadError(null), 5000);
     }
   };
@@ -604,6 +650,16 @@ export default function Home() {
       setIsSaving(false);
       setSaveSuccess(false);
     }, 2000);
+  };
+
+  // Function to clear all sender IDs
+  const clearSenderIds = () => {
+    sessionStorage.removeItem('wakuSenderId');
+    sessionStorage.removeItem('wakuTabId');
+    localStorage.removeItem('wakuUserId');
+    addWakuDebugLog('info', 'All sender IDs cleared');
+    setCopySuccess('All sender IDs cleared');
+    setTimeout(() => setCopySuccess(null), 3000);
   };
 
   return (
@@ -1005,40 +1061,135 @@ export default function Home() {
                       ? 'WAKU: CONNECTING...' 
                       : 'WAKU: DISCONNECTED'}
                 </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addWakuDebugLog('info', 'Manual reconnection requested');
+                    reconnectWaku();
+                  }}
+                  className="text-xs font-mono text-primary/70 hover:text-primary bg-primary/10 px-2 py-0.5 rounded"
+                >
+                  RECONNECT
+                </button>
               </div>
               
               {/* Debug buttons for testing - only in development */}
               {process.env.NODE_ENV !== 'production' && (
-                <div className="flex gap-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      testClipboardCopy('Test clipboard text ' + new Date().toISOString());
-                    }}
-                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                  >
-                    TEST_CLIPBOARD
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        testClipboardCopy('Test clipboard text ' + new Date().toISOString());
+                      }}
+                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                    >
+                      TEST_CLIPBOARD
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        testDirectUpload();
+                      }}
+                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                    >
+                      TEST_DIRECT_UPLOAD
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        testWakuMessage();
+                      }}
+                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                    >
+                      TEST_WAKU_MESSAGE
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWakuDebugVisible(!wakuDebugVisible);
+                      }}
+                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                    >
+                      {wakuDebugVisible ? 'HIDE_DEBUG' : 'SHOW_DEBUG'}
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const senderId = sessionStorage.getItem('wakuSenderId');
+                        const tabId = sessionStorage.getItem('wakuTabId');
+                        const userId = localStorage.getItem('wakuUserId');
+                        addWakuDebugLog('info', `Sender ID: ${senderId || 'not set'}`);
+                        addWakuDebugLog('info', `Tab ID: ${tabId || 'not set'}`);
+                        addWakuDebugLog('info', `User ID: ${userId || 'not set'}`);
+                        setCopySuccess(`Sender ID: ${senderId || 'not set'}`);
+                        setTimeout(() => setCopySuccess(null), 3000);
+                      }}
+                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                    >
+                      SHOW_ID
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearSenderIds();
+                      }}
+                      className="mt-3 px-4 py-2 bg-amber-600/20 text-amber-600 text-xs font-mono rounded-md hover:bg-amber-600/30 transition-colors"
+                    >
+                      RESET_IDS
+                    </button>
+                  </div>
                   
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      testDirectUpload();
-                    }}
-                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                  >
-                    TEST_DIRECT_UPLOAD
-                  </button>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      testWakuMessage();
-                    }}
-                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                  >
-                    TEST_WAKU_MESSAGE
-                  </button>
+                  {/* Waku Debug Panel */}
+                  {wakuDebugVisible && (
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="mt-3 p-3 bg-black/80 border border-primary/30 rounded-md w-full max-w-full overflow-hidden text-left"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-mono text-primary">WAKU_DEBUG_CONSOLE</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            Room: {roomId}
+                          </span>
+                          <span className="text-xs font-mono text-muted-foreground">
+                            Peers: {wakuPeerCount}
+                          </span>
+                          <button
+                            onClick={() => setWakuDebugLogs([])}
+                            className="text-xs font-mono text-primary/70 hover:text-primary"
+                          >
+                            CLEAR
+                          </button>
+                        </div>
+                      </div>
+                      <div className="h-40 overflow-y-auto font-mono text-xs space-y-1 bg-black/50 p-2 rounded border border-primary/10">
+                        {wakuDebugLogs.length > 0 ? (
+                          wakuDebugLogs.map((log, index) => (
+                            <div key={index} className="flex">
+                              <span className="text-muted-foreground mr-2">[{log.timestamp}]</span>
+                              <span className={
+                                log.type === 'error' 
+                                  ? 'text-red-400' 
+                                  : log.type === 'success' 
+                                    ? 'text-green-400' 
+                                    : 'text-blue-400'
+                              }>
+                                {log.message}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-muted-foreground">No logs yet. Send a test message to see debug info.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
