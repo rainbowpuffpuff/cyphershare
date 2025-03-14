@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,25 +30,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Mock data for sent and received files
+// Update the FileItem interface to include id as string and add fileId
 interface FileItem {
-  id: number;
+  id: number | string;
   name: string;
   size: number;
   type: string;
   timestamp: string;
+  fileId?: string; // Codex file ID
 }
 
-const mockSentFiles: FileItem[] = [
-  { id: 1, name: "document.pdf", size: 2.4, type: "application/pdf", timestamp: "2023-06-15 14:30" },
-  { id: 2, name: "image.jpg", size: 1.8, type: "image/jpeg", timestamp: "2023-06-15 14:35" },
-  { id: 3, name: "spreadsheet.xlsx", size: 0.9, type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", timestamp: "2023-06-15 15:10" },
-];
-
-const mockReceivedFiles: FileItem[] = [
-  { id: 1, name: "presentation.pptx", size: 5.2, type: "application/vnd.openxmlformats-officedocument.presentationml.presentation", timestamp: "2023-06-15 13:45" },
-  { id: 2, name: "archive.zip", size: 10.5, type: "application/zip", timestamp: "2023-06-15 16:20" },
-];
+// Remove mock data
+const mockReceivedFiles: FileItem[] = [];
 
 export default function Home() {
   const [roomId, setRoomId] = useState("XYZ123");
@@ -61,6 +54,14 @@ export default function Home() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [nodeInfo, setNodeInfo] = useState<any | null>(null);
   
+  const [sentFiles, setSentFiles] = useState<FileItem[]>([]);
+  const [receivedFiles, setReceivedFiles] = useState<FileItem[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<{
+    [key: string]: { progress: number; name: string; size: number; type: string; }
+  }>({});
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  
   // Initialize Codex client with default URL
   const { 
     isNodeActive: isCodexNodeActive, 
@@ -68,7 +69,8 @@ export default function Home() {
     updateBaseUrl: updateCodexUrl,
     checkNodeStatus: checkCodexStatus,
     error: codexError,
-    getNodeInfo
+    getNodeInfo,
+    getCodexClient
   } = useCodex(codexNodeUrl);
 
   // Fetch node info when node is active
@@ -87,8 +89,120 @@ export default function Home() {
     }
   }, [isCodexNodeActive, isCodexLoading, getNodeInfo]);
 
+  // Handle file drop
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (!isCodexNodeActive) {
+      setUploadError("Codex node is not active. Please check your connection.");
+      setTimeout(() => setUploadError(null), 5000);
+      return;
+    }
+
+    // Process each file
+    acceptedFiles.forEach(file => {
+      const fileId = `upload-${Date.now()}-${file.name}`;
+      
+      // Add file to uploading state
+      setUploadingFiles(prev => ({
+        ...prev,
+        [fileId]: {
+          progress: 0,
+          name: file.name,
+          size: file.size / (1024 * 1024), // Convert to MB
+          type: file.type
+        }
+      }));
+      
+      // Upload file to Codex
+      const uploadFile = async () => {
+        try {
+          const result = await getCodexClient().uploadFile(file, (progress: number) => {
+            // Update progress
+            setUploadingFiles(prev => ({
+              ...prev,
+              [fileId]: { ...prev[fileId], progress }
+            }));
+          });
+          
+          // Handle upload completion
+          if (result.success) {
+            // Add to sent files
+            const timestamp = new Date().toLocaleString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            
+            // Enhanced debug logging for the upload result
+            console.log('========== UPLOAD RESULT ==========');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('===================================');
+            
+            // Log the CID specifically
+            if (result.id) {
+              console.log('✅ File uploaded successfully. CID:', result.id);
+              console.log('%c Copy this CID: ' + result.id, 'background: #222; color: #bada55; padding: 2px 5px; border-radius: 2px;');
+            } else {
+              console.warn('⚠️ No CID returned from upload');
+            }
+            
+            const newFile: FileItem = {
+              id: fileId,
+              name: file.name,
+              size: parseFloat((file.size / (1024 * 1024)).toFixed(2)), // MB with 2 decimal places
+              type: file.type,
+              timestamp,
+              fileId: result.id // Store the CID returned from the Codex API
+            };
+            
+            // Log the file object with CID
+            console.log('Adding file to sent files:', newFile);
+            
+            // Log the file ID for debugging
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`File uploaded successfully. CID: ${result.id}`);
+            }
+            
+            setSentFiles(prev => [newFile, ...prev]);
+            
+            // Remove from uploading files
+            setUploadingFiles(prev => {
+              const updated = { ...prev };
+              delete updated[fileId];
+              return updated;
+            });
+          } else {
+            // Handle error
+            setUploadError(`Failed to upload ${file.name}: ${result.error}`);
+            setTimeout(() => setUploadError(null), 5000);
+            
+            // Remove from uploading files
+            setUploadingFiles(prev => {
+              const updated = { ...prev };
+              delete updated[fileId];
+              return updated;
+            });
+          }
+        } catch (error) {
+          setUploadError(`Error uploading ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          setTimeout(() => setUploadError(null), 5000);
+          
+          // Remove from uploading files
+          setUploadingFiles(prev => {
+            const updated = { ...prev };
+            delete updated[fileId];
+            return updated;
+          });
+        }
+      };
+      
+      uploadFile();
+    });
+  }, [isCodexNodeActive]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: () => {}, // No functionality, just UI
+    onDrop,
     maxSize: 100 * 1024 * 1024, // 100MB max size
   });
 
@@ -113,6 +227,160 @@ export default function Home() {
     navigator.clipboard.writeText(roomId);
     setCopiedRoom(true);
     setTimeout(() => setCopiedRoom(false), 2000);
+  };
+  
+  // Handle copying file CID
+  const [copiedFileCid, setCopiedFileCid] = useState<string | null>(null);
+  
+  // Function to copy text to clipboard using a fallback method
+  const copyToClipboard = (text: string): boolean => {
+    try {
+      // Create a temporary textarea element
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      
+      // Make the textarea out of viewport
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-999999px';
+      textarea.style.top = '-999999px';
+      document.body.appendChild(textarea);
+      
+      // Select and copy the text
+      textarea.focus();
+      textarea.select();
+      const success = document.execCommand('copy');
+      
+      // Clean up
+      document.body.removeChild(textarea);
+      
+      return success;
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      return false;
+    }
+  };
+  
+  // Debug function to test clipboard functionality
+  const testClipboardCopy = (text: string) => {
+    const success = copyToClipboard(text);
+    if (success) {
+      console.log('Successfully copied to clipboard:', text);
+      setCopySuccess(`Test text copied to clipboard: ${text}`);
+    } else {
+      console.error('Failed to copy to clipboard');
+      setUploadError('Failed to copy to clipboard');
+    }
+    setTimeout(() => {
+      setCopySuccess(null);
+      setUploadError(null);
+    }, 2000);
+  };
+  
+  // Test function to directly upload a file to Codex
+  const testDirectUpload = async () => {
+    if (!isCodexNodeActive) {
+      setUploadError("Codex node is not active. Please check your connection.");
+      setTimeout(() => setUploadError(null), 5000);
+      return;
+    }
+    
+    try {
+      // Create a test file with timestamp to ensure uniqueness
+      const timestamp = new Date().toISOString();
+      const testContent = `This is a test file created at ${timestamp}`;
+      const blob = new Blob([testContent], { type: 'text/plain' });
+      const fileName = `test-file-${Date.now()}.txt`;
+      
+      console.log('Uploading test file directly to Codex API...');
+      console.log(`URL: ${codexNodeUrl}/v1/data`);
+      console.log(`File: ${fileName}`);
+      
+      // Direct fetch to the API
+      const response = await fetch(`${codexNodeUrl}/v1/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+        body: blob
+      });
+      
+      console.log('========== DIRECT UPLOAD RESPONSE ==========');
+      console.log('Status:', response.status);
+      console.log('Status Text:', response.statusText);
+      console.log('Headers:');
+      response.headers.forEach((value, key) => {
+        console.log(`  ${key}: ${value}`);
+      });
+      
+      // Try to get the response as text first
+      const responseText = await response.text();
+      console.log('Response Text:', responseText);
+      console.log('===========================================');
+      
+      // Try to parse as JSON if possible
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        console.log('Parsed JSON response:', jsonResponse);
+        
+        // Extract CID
+        const cid = jsonResponse.id || jsonResponse.cid || 
+          (jsonResponse.data && (jsonResponse.data.id || jsonResponse.data.cid));
+        
+        if (cid) {
+          console.log('%c Direct upload CID: ' + cid, 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+          setCopySuccess(`Direct upload successful. CID: ${cid}`);
+          setTimeout(() => setCopySuccess(null), 5000);
+        }
+      } catch (e) {
+        // If not JSON, the response text might be the CID directly
+        if (responseText && response.ok) {
+          console.log('%c Direct upload CID (from text): ' + responseText.trim(), 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+          setCopySuccess(`Direct upload successful. CID: ${responseText.trim()}`);
+          setTimeout(() => setCopySuccess(null), 5000);
+        }
+      }
+    } catch (error) {
+      console.error('Error in direct upload test:', error);
+      setUploadError(`Direct upload test failed: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setUploadError(null), 5000);
+    }
+  };
+  
+  const handleCopyFileCid = (fileId: string) => {
+    const file = sentFiles.find(f => f.id.toString() === fileId) || receivedFiles.find(f => f.id.toString() === fileId);
+    if (file && file.fileId) {
+      // Debug log to see what's being copied
+      console.log('Copying file CID:', {
+        fileId: fileId,
+        file: file,
+        cid: file.fileId
+      });
+      
+      const cidToDisplay = `${file.fileId.substring(0, 8)}...${file.fileId.substring(file.fileId.length - 6)}`;
+      
+      // Use the fallback method to copy
+      const success = copyToClipboard(file.fileId);
+      
+      if (success) {
+        setCopiedFileCid(fileId);
+        setCopySuccess(`CID copied to clipboard: ${cidToDisplay}`);
+        console.log(`Copied CID to clipboard: ${file.fileId}`);
+        
+        setTimeout(() => {
+          setCopiedFileCid(null);
+          setCopySuccess(null);
+        }, 2000);
+      } else {
+        console.error('Failed to copy CID to clipboard');
+        setUploadError('Failed to copy CID to clipboard');
+        setTimeout(() => setUploadError(null), 5000);
+      }
+    } else {
+      console.warn('No CID found for file:', fileId);
+      setUploadError('No CID available for this file');
+      setTimeout(() => setUploadError(null), 5000);
+    }
   };
 
   // Handle Codex URL change
@@ -145,6 +413,16 @@ export default function Home() {
         <title>FileShare - Secure File Sharing</title>
         <meta name="description" content="Securely share files with anyone" />
       </Head>
+      
+      {/* Copy Success Toast */}
+      {copySuccess && (
+        <div className="fixed bottom-4 right-4 p-3 bg-green-500/20 border border-green-500/30 rounded-md shadow-lg z-50 max-w-md">
+          <p className="text-xs text-green-500 font-mono flex items-center gap-1">
+            <Check size={12} />
+            {copySuccess}
+          </p>
+        </div>
+      )}
       
       <main className="flex-1 flex flex-col p-4 md:p-8 relative z-0">
         <div className="w-full max-w-5xl mx-auto">
@@ -434,10 +712,79 @@ export default function Home() {
               <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-mono border border-primary/10">
                 MAX_SIZE=100MB
               </div>
+              
+              {/* Debug button for clipboard testing - only in development */}
+              {process.env.NODE_ENV !== 'production' && (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      testClipboardCopy('Test clipboard text ' + new Date().toISOString());
+                    }}
+                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                  >
+                    TEST_CLIPBOARD
+                  </button>
+                  
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      testDirectUpload();
+                    }}
+                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                  >
+                    TEST_DIRECT_UPLOAD
+                  </button>
+                </div>
+              )}
+              
+              {/* Upload Error Message */}
+              {uploadError && (
+                <div className="mt-3 p-2 bg-amber-600/20 border border-amber-600/30 rounded-md w-full max-w-md">
+                  <p className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    {uploadError}
+                  </p>
+                </div>
+              )}
             </div>
             {/* Scanline effect */}
             <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
           </div>
+
+          {/* Uploading Files Progress */}
+          {Object.keys(uploadingFiles).length > 0 && (
+            <div className="mb-8 space-y-4">
+              <h3 className="text-sm font-medium font-mono flex items-center gap-2">
+                <Upload size={14} className="text-primary" />
+                UPLOADING_FILES
+              </h3>
+              <div className="space-y-3">
+                {Object.entries(uploadingFiles).map(([fileId, file]) => (
+                  <div key={fileId} className="p-3 bg-card rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                          {getFileIcon(file.type)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-mono">{file.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{file.size.toFixed(2)} MB</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono text-primary">{file.progress}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-primary h-full transition-all duration-300 ease-in-out" 
+                        style={{ width: `${file.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Sent and Received Files Tabs */}
           <Tabs defaultValue="sent" className="w-full">
@@ -455,13 +802,13 @@ export default function Home() {
             <TabsContent value="sent">
               <Card className="shadow-sm border-border relative overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border bg-card">
-                  <CardTitle className="text-lg font-mono">Files You've Sent</CardTitle>
+                  <CardTitle className="text-lg font-mono">Files Sent</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
                   <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
-                    {mockSentFiles.length > 0 ? (
+                    {sentFiles.length > 0 ? (
                       <div className="space-y-3">
-                        {mockSentFiles.map((file) => (
+                        {sentFiles.map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
                             <div className="flex items-center gap-3">
                               <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
@@ -472,33 +819,35 @@ export default function Home() {
                                 <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
-                              <Copy size={14} />
-                            </Button>
-                          </div>
-                        ))}
-                        
-                        {/* Add more mock files to demonstrate scrolling */}
-                        {[4, 5, 6].map((id) => (
-                          <div key={id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
-                                <FileText size={24} />
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm font-mono">additional-file-{id}.txt</p>
-                                <p className="text-xs text-muted-foreground font-mono">1.2 MB • 2023-06-16 09:{id}0</p>
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
-                              <Copy size={14} />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleCopyFileCid(file.id.toString())}
+                              className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                              disabled={!file.fileId}
+                              title={file.fileId ? "Copy file CID" : "No CID available"}
+                            >
+                              {copiedFileCid === file.id.toString() ? (
+                                <Check size={14} className="text-green-500" />
+                              ) : (
+                                <Copy size={14} />
+                              )}
+                              <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                Copy CID
+                              </span>
                             </Button>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground font-mono">No files sent yet</p>
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <div className="p-3 rounded-full bg-muted/50">
+                          <Upload size={24} className="text-muted-foreground/60" />
+                        </div>
+                        <p className="text-muted-foreground font-mono mt-3">No files sent yet</p>
+                        <p className="text-xs text-muted-foreground/70 font-mono mt-1">
+                          Upload files to see them here
+                        </p>
                       </div>
                     )}
                   </div>
@@ -511,13 +860,13 @@ export default function Home() {
             <TabsContent value="received">
               <Card className="shadow-sm border-border relative overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border bg-card">
-                  <CardTitle className="text-lg font-mono">Files You've Received</CardTitle>
+                  <CardTitle className="text-lg font-mono">Files Received</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
                   <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
-                    {mockReceivedFiles.length > 0 ? (
+                    {receivedFiles.length > 0 ? (
                       <div className="space-y-3">
-                        {mockReceivedFiles.map((file) => (
+                        {receivedFiles.map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
                             <div className="flex items-center gap-3">
                               <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
@@ -526,35 +875,50 @@ export default function Home() {
                               <div>
                                 <p className="font-medium text-sm font-mono">{file.name}</p>
                                 <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
+                                {file.fileId && (
+                                  <p className="text-xs text-primary/70 font-mono truncate max-w-[200px] md:max-w-[300px]" title={file.fileId}>
+                                    CID: {file.fileId.substring(0, 8)}...{file.fileId.substring(file.fileId.length - 6)}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
-                              <Download size={14} />
-                            </Button>
-                          </div>
-                        ))}
-                        
-                        {/* Add more mock files to demonstrate scrolling */}
-                        {[3, 4, 5].map((id) => (
-                          <div key={id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
-                                <Image size={24} />
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm font-mono">received-image-{id}.png</p>
-                                <p className="text-xs text-muted-foreground font-mono">3.{id} MB • 2023-06-17 10:{id}5</p>
-                              </div>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCopyFileCid(file.id.toString())}
+                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                disabled={!file.fileId}
+                                title={file.fileId ? "Copy file CID" : "No CID available"}
+                              >
+                                {copiedFileCid === file.id.toString() ? (
+                                  <Check size={14} className="text-green-500" />
+                                ) : (
+                                  <Copy size={14} />
+                                )}
+                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                  Copy CID
+                                </span>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group">
+                                <Download size={14} />
+                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                  Download File
+                                </span>
+                              </Button>
                             </div>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent text-accent-foreground">
-                              <Download size={14} />
-                            </Button>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground font-mono">No files received yet</p>
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <div className="p-3 rounded-full bg-muted/50">
+                          <Download size={24} className="text-muted-foreground/60" />
+                        </div>
+                        <p className="text-muted-foreground font-mono mt-3">No files received yet</p>
+                        <p className="text-xs text-muted-foreground/70 font-mono mt-1">
+                          Received files will appear here
+                        </p>
                       </div>
                     )}
                   </div>
