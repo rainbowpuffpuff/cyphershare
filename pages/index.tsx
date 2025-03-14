@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info, Wifi, WifiOff } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
@@ -19,6 +19,7 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 import { useCodex } from "@/hooks/useCodex";
+import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
 import axios from "axios";
 
 const geistSans = Geist({
@@ -74,6 +75,73 @@ export default function Home() {
     getCodexClient
   } = useCodex(codexNodeUrl);
 
+  // Handle file received via Waku
+  const handleFileReceived = useCallback((fileMessage: WakuFileMessage) => {
+    // Get our sender ID from localStorage
+    const ourSenderId = localStorage.getItem('wakuSenderId');
+    
+    // Check if this is a file we sent (by checking sender ID or fileId in sentFiles)
+    const isSentByUs = (ourSenderId && fileMessage.sender === ourSenderId) || 
+                       sentFiles.some(file => file.fileId === fileMessage.fileId);
+    
+    // If we sent this file, don't add it to received files
+    if (isSentByUs) {
+      console.log('Ignoring file we sent:', fileMessage.fileName, 'from sender:', fileMessage.sender);
+      return;
+    }
+    
+    console.log('Received new file from peer:', {
+      fileName: fileMessage.fileName,
+      sender: fileMessage.sender,
+      fileId: fileMessage.fileId
+    });
+    
+    // Check if we already have this file in our received files
+    const fileExists = receivedFiles.some(file => file.fileId === fileMessage.fileId);
+    
+    if (!fileExists) {
+      // Create a new file item
+      const timestamp = new Date(fileMessage.timestamp).toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      const newFile: FileItem = {
+        id: `received-${fileMessage.timestamp}-${fileMessage.fileName}`,
+        name: fileMessage.fileName,
+        size: fileMessage.fileSize,
+        type: fileMessage.fileType,
+        timestamp,
+        fileId: fileMessage.fileId
+      };
+      
+      // Add to received files
+      setReceivedFiles(prev => [newFile, ...prev]);
+      
+      // Show notification
+      setCopySuccess(`Received file: ${fileMessage.fileName}`);
+      setTimeout(() => setCopySuccess(null), 3000);
+    }
+  }, [receivedFiles, sentFiles]);
+
+  // Initialize Waku client
+  const { 
+    isConnecting: isWakuConnecting,
+    isConnected: isWakuConnected,
+    error: wakuError,
+    sendFileMessage,
+    peerCount: wakuPeerCount,
+    contentTopic: wakuContentTopic
+  } = useWaku({
+    roomId,
+    wakuNodeUrl,
+    wakuNodeType: wakuNodeType as 'light' | 'relay',
+    onFileReceived: handleFileReceived
+  });
+
   // Fetch node info when node is active
   useEffect(() => {
     if (isCodexNodeActive && !isCodexLoading) {
@@ -90,7 +158,7 @@ export default function Home() {
     }
   }, [isCodexNodeActive, isCodexLoading, getNodeInfo]);
 
-  // Handle file drop
+  // Handle file drop - Modified to include Waku file sharing
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (!isCodexNodeActive) {
       setUploadError("Codex node is not active. Please check your connection.");
@@ -173,6 +241,21 @@ export default function Home() {
               delete updated[fileId];
               return updated;
             });
+            
+            // Share the file with peers via Waku if connected
+            if (isWakuConnected && result.id) {
+              try {
+                await sendFileMessage({
+                  fileName: file.name,
+                  fileSize: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+                  fileType: file.type,
+                  fileId: result.id
+                });
+                console.log('File shared with peers via Waku');
+              } catch (wakuError) {
+                console.error('Failed to share file via Waku:', wakuError);
+              }
+            }
           } else {
             // Handle error
             setUploadError(`Failed to upload ${file.name}: ${result.error}`);
@@ -200,7 +283,7 @@ export default function Home() {
       
       uploadFile();
     });
-  }, [isCodexNodeActive]);
+  }, [isCodexNodeActive, getCodexClient, isWakuConnected, sendFileMessage]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -348,6 +431,46 @@ export default function Home() {
     }
   };
   
+  // Test function to send a test message via Waku
+  const testWakuMessage = async () => {
+    if (!isWakuConnected) {
+      setUploadError("Waku is not connected. Please check your connection.");
+      setTimeout(() => setUploadError(null), 5000);
+      return;
+    }
+    
+    try {
+      console.log('Sending test message via Waku...');
+      
+      // Create a test message with timestamp to ensure uniqueness
+      const timestamp = new Date().toISOString();
+      const testFileName = `test-message-${Date.now()}.txt`;
+      
+      // Send a test message via Waku
+      const success = await sendFileMessage({
+        fileName: testFileName,
+        fileSize: 0.01, // Small dummy size
+        fileType: 'text/plain',
+        fileId: `test-${Date.now()}` // Dummy file ID
+      });
+      
+      if (success) {
+        setCopySuccess(`Test message sent successfully: ${testFileName}`);
+      } else {
+        setUploadError('Failed to send test message');
+      }
+      
+      setTimeout(() => {
+        setCopySuccess(null);
+        setUploadError(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error sending test Waku message:', error);
+      setUploadError(`Test message failed: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setUploadError(null), 5000);
+    }
+  };
+
   const handleCopyFileCid = (fileId: string) => {
     const file = sentFiles.find(f => f.id.toString() === fileId) || receivedFiles.find(f => f.id.toString() === fileId);
     if (file && file.fileId) {
@@ -559,6 +682,25 @@ export default function Home() {
                     {copiedRoom ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                   </Button>
                 </div>
+                {/* Waku connection indicator */}
+                {wakuNodeType === 'light' && (
+                  <div 
+                    className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
+                      isWakuConnected 
+                        ? 'bg-green-500 animate-pulse' 
+                        : isWakuConnecting 
+                          ? 'bg-amber-500 animate-pulse' 
+                          : 'bg-red-500'
+                    }`}
+                    title={
+                      isWakuConnected 
+                        ? `Connected to Waku network (${wakuPeerCount} peers)` 
+                        : isWakuConnecting 
+                          ? 'Connecting to Waku network...' 
+                          : 'Not connected to Waku network'
+                    }
+                  ></div>
+                )}
                 {/* Scanline effect */}
                 <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </div>
@@ -708,7 +850,17 @@ export default function Home() {
                           </div>
                           <h3 className="text-base font-medium font-mono">WAKU_SETTINGS</h3>
                         </div>
-                        <div className="w-2 h-2 rounded-full bg-primary/80 animate-pulse" title="Status indicator"></div>
+                        {wakuNodeType === 'light' ? (
+                          isWakuConnecting ? (
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Connecting to Waku network..."></div>
+                          ) : isWakuConnected ? (
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title={`Connected to Waku network (${wakuPeerCount} peers)`}></div>
+                          ) : (
+                            <div className="w-2 h-2 rounded-full bg-red-500" title="Not connected to Waku network"></div>
+                          )
+                        ) : (
+                          <div className="w-2 h-2 rounded-full bg-primary/80" title="Using relay node"></div>
+                        )}
                       </div>
                       
                       <div className="space-y-4 pl-2 ml-2 border-l border-border">
@@ -742,6 +894,44 @@ export default function Home() {
                             nwaku node API endpoint URL
                           </p>
                         </div>
+                        
+                        {/* Waku Status Information */}
+                        {wakuNodeType === 'light' && (
+                          <div className="mt-3 p-2 bg-card/50 border border-primary/10 rounded-md">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Info size={12} className="text-primary/70" />
+                              <span className="text-xs font-medium text-primary/90 font-mono">WAKU_STATUS</span>
+                            </div>
+                            <div className="space-y-1 pl-4 border-l border-primary/10">
+                              <p className="text-xs font-mono flex items-center justify-between">
+                                <span className="text-muted-foreground">STATUS:</span>
+                                <span className={`${isWakuConnected ? 'text-green-500' : 'text-amber-500'}`}>
+                                  {isWakuConnecting ? 'CONNECTING' : isWakuConnected ? 'CONNECTED' : 'DISCONNECTED'}
+                                </span>
+                              </p>
+                              {isWakuConnected && (
+                                <>
+                                  <p className="text-xs font-mono flex items-center justify-between">
+                                    <span className="text-muted-foreground">PEERS:</span>
+                                    <span className="text-primary/80">{wakuPeerCount}</span>
+                                  </p>
+                                  <p className="text-xs font-mono flex items-center justify-between">
+                                    <span className="text-muted-foreground">TOPIC:</span>
+                                    <span className="text-primary/80 truncate max-w-[180px]" title={wakuContentTopic}>
+                                      {wakuContentTopic}
+                                    </span>
+                                  </p>
+                                </>
+                              )}
+                              {wakuError && (
+                                <p className="text-xs font-mono flex items-center text-amber-500">
+                                  <AlertCircle size={10} className="mr-1" />
+                                  {wakuError}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -799,7 +989,25 @@ export default function Home() {
                 MAX_SIZE=100MB
               </div>
               
-              {/* Debug button for clipboard testing - only in development */}
+              {/* Waku connection status */}
+              <div className="flex items-center gap-2 mt-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  isWakuConnected 
+                    ? 'bg-green-500 animate-pulse' 
+                    : isWakuConnecting 
+                      ? 'bg-amber-500 animate-pulse' 
+                      : 'bg-red-500'
+                }`}></div>
+                <span className="text-xs font-mono">
+                  {isWakuConnected 
+                    ? `WAKU: CONNECTED (${wakuPeerCount} peers)` 
+                    : isWakuConnecting 
+                      ? 'WAKU: CONNECTING...' 
+                      : 'WAKU: DISCONNECTED'}
+                </span>
+              </div>
+              
+              {/* Debug buttons for testing - only in development */}
               {process.env.NODE_ENV !== 'production' && (
                 <div className="flex gap-2">
                   <button 
@@ -820,6 +1028,16 @@ export default function Home() {
                     className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
                   >
                     TEST_DIRECT_UPLOAD
+                  </button>
+                  
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      testWakuMessage();
+                    }}
+                    className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
+                  >
+                    TEST_WAKU_MESSAGE
                   </button>
                 </div>
               )}
@@ -891,21 +1109,21 @@ export default function Home() {
                   <CardTitle className="text-lg font-mono">Files Sent</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
-                  <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
+                  <div className="h-[250px] overflow-y-auto overflow-x-hidden p-4 relative">
                     {sentFiles.length > 0 ? (
                       <div className="space-y-3">
                         {sentFiles.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
+                          <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors w-full">
+                            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0">
                                 {getFileIcon(file.type)}
                               </div>
-                              <div>
-                                <p className="font-medium text-sm font-mono">{file.name}</p>
-                                <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <p className="font-medium text-sm font-mono truncate">{file.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono truncate">{file.size.toFixed(2)} MB • {file.timestamp}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
@@ -964,26 +1182,26 @@ export default function Home() {
                   <CardTitle className="text-lg font-mono">Files Received</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
-                  <div className="h-[250px] overflow-y-auto pr-2 p-4 relative">
+                  <div className="h-[250px] overflow-y-auto overflow-x-hidden p-4 relative">
                     {receivedFiles.length > 0 ? (
                       <div className="space-y-3">
                         {receivedFiles.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border">
+                          <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors w-full">
+                            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0">
                                 {getFileIcon(file.type)}
                               </div>
-                              <div>
-                                <p className="font-medium text-sm font-mono">{file.name}</p>
-                                <p className="text-xs text-muted-foreground font-mono">{file.size} MB • {file.timestamp}</p>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <p className="font-medium text-sm font-mono truncate">{file.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono truncate">{file.size.toFixed(2)} MB • {file.timestamp}</p>
                                 {file.fileId && (
-                                  <p className="text-xs text-primary/70 font-mono truncate max-w-[200px] md:max-w-[300px]" title={file.fileId}>
+                                  <p className="text-xs text-primary/70 font-mono truncate" title={file.fileId}>
                                     CID: {file.fileId.substring(0, 8)}...{file.fileId.substring(file.fileId.length - 6)}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
