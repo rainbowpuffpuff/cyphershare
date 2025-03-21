@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/sheet";
 import { useCodex } from "@/hooks/useCodex";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
-import type { CodexNodeInfo } from "@/lib/codex";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 
@@ -479,7 +478,7 @@ export default function Home() {
           setCopySuccess(`Direct upload successful. CID: ${cid}`);
           setTimeout(() => setCopySuccess(null), 5000);
         }
-      } catch (e) {
+      } catch {
         // If not JSON, the response text might be the CID directly
         if (responseText && response.ok) {
           console.log('%c Direct upload CID (from text): ' + responseText.trim(), 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
@@ -742,6 +741,11 @@ export default function Home() {
                 <Terminal size={22} className="text-primary group-hover:scale-110 transition-transform duration-300" />
               </div>
               <div className="flex items-center">
+                <img 
+                  src="/logo.png" 
+                  alt="FileShare Logo"
+                  className="w-8 h-8" 
+                />
                 <span className="font-bold text-lg tracking-tight font-mono">FileShare</span>
               </div>
               <div className="hidden md:flex items-center h-6 px-2.5 rounded-full bg-muted/60 border border-border text-xs font-medium text-muted-foreground font-mono">
