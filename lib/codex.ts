@@ -4,12 +4,12 @@
  */
 
 // Types for Codex API responses
-interface CodexNodeInfo {
+export interface CodexNodeInfo {
   version: string;
   status: string;
   uptime: string;
   peers?: number;
-  [key: string]: any; // For any additional fields in the response
+  [key: string]: unknown; // Changed from any to unknown for better type safety
 }
 
 interface CodexApiResponse<T> {
@@ -138,7 +138,7 @@ export class CodexClient {
   public async makeRequest<T>(
     endpoint: string, 
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    body?: any
+    body?: unknown // Changed from any to unknown
   ): Promise<CodexApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
@@ -157,7 +157,7 @@ export class CodexClient {
       
       // Add timeout to avoid hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       options.signal = controller.signal;
       
       try {
@@ -168,7 +168,8 @@ export class CodexClient {
         let data;
         try {
           data = await response.json();
-        } catch (parseError) {
+        } catch {
+          // Removed unused parseError variable
           data = { error: 'Invalid response format' };
         }
         
@@ -179,7 +180,7 @@ export class CodexClient {
         };
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        throw fetchError; // Re-throw to be caught by outer try-catch
+        throw fetchError;
       }
     } catch (error) {
       // Handle network errors more gracefully
@@ -200,7 +201,7 @@ export class CodexClient {
       
       // For other errors
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`Error making ${method} request to ${endpoint}:`, error);
+        console.error(`Error making ${method} request to ${endpoint}:`, error);
       }
       
       return {
@@ -223,7 +224,7 @@ export class CodexClient {
     try {
       const url = `${this.baseUrl}/v1/data`;
       
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => { // Removed unused reject parameter
         const xhr = new XMLHttpRequest();
         
         // Set up progress tracking
@@ -322,10 +323,11 @@ export class CodexClient {
         xhr.send(file);
       });
     } catch (error) {
-      console.error('Exception during upload:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error during upload' 
+      // Handle errors without using unused variable
+      console.error('Error during file upload:', error instanceof Error ? error.message : 'Unknown error');
+      return {
+        success: false,
+        error: 'Failed to upload file',
       };
     }
   }
