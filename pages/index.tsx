@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info, Wifi, WifiOff } from "lucide-react";
-import Link from "next/link";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info } from "lucide-react";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -20,7 +19,9 @@ import {
 } from "@/components/ui/sheet";
 import { useCodex } from "@/hooks/useCodex";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
+import type { CodexNodeInfo } from "@/lib/codex";
 import axios from "axios";
+import { cn } from "@/lib/utils";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,16 @@ interface FileItem {
 // Remove mock data
 const mockReceivedFiles: FileItem[] = [];
 
+// Update ExtendedNodeInfo interface
+interface ExtendedNodeInfo {
+  id?: string;
+  version: string;
+  revision?: string;
+  status: string;
+  uptime: string;
+  peers?: number;
+}
+
 export default function Home() {
   const [roomId, setRoomId] = useState("XYZ123");
   const [isEditingRoom, setIsEditingRoom] = useState(false);
@@ -54,7 +65,7 @@ export default function Home() {
   const [wakuNodeType, setWakuNodeType] = useState("light");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [nodeInfo, setNodeInfo] = useState<any | null>(null);
+  const [nodeInfo, setNodeInfo] = useState<ExtendedNodeInfo | null>(null);
   
   const [sentFiles, setSentFiles] = useState<FileItem[]>([]);
   const [receivedFiles, setReceivedFiles] = useState<FileItem[]>([]);
@@ -181,13 +192,29 @@ export default function Home() {
     onFileReceived: handleFileReceived
   });
 
-  // Fetch node info when node is active
+  // Update type guard with more explicit checks
+  const isValidNodeInfo = (info: unknown): info is ExtendedNodeInfo => {
+    if (!info || typeof info !== 'object') return false;
+    const nodeInfo = info as Partial<ExtendedNodeInfo>;
+    return (
+      typeof nodeInfo.version === 'string' &&
+      typeof nodeInfo.status === 'string' &&
+      typeof nodeInfo.uptime === 'string' &&
+      (typeof nodeInfo.id === 'string' || nodeInfo.id === undefined) &&
+      (typeof nodeInfo.revision === 'string' || nodeInfo.revision === undefined) &&
+      (typeof nodeInfo.peers === 'number' || nodeInfo.peers === undefined)
+    );
+  };
+
+  // Update the useEffect that fetches node info
   useEffect(() => {
     if (isCodexNodeActive && !isCodexLoading) {
       const fetchNodeInfo = async () => {
         const info = await getNodeInfo();
-        if (info) {
+        if (info && isValidNodeInfo(info)) {
           setNodeInfo(info);
+        } else {
+          setNodeInfo(null);
         }
       };
       
@@ -629,8 +656,8 @@ export default function Home() {
   };
 
   // Handle Codex URL change
-  const handleCodexUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCodexNodeUrl(e.target.value);
+  const handleCodexUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCodexNodeUrl(event.target.value);
   };
 
   // Update Codex URL when Save button is clicked
@@ -662,11 +689,30 @@ export default function Home() {
     setTimeout(() => setCopySuccess(null), 3000);
   };
 
+  // Update the node info rendering with proper type checking and casting
+  const renderNodeInfo = () => {
+    if (!nodeInfo || !isValidNodeInfo(nodeInfo)) return null;
+    
+    return (
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm">Node ID: {nodeInfo.id ?? 'N/A'}</p>
+        <p className="text-sm">Version: {nodeInfo.version}</p>
+        <p className="text-sm">Revision: {nodeInfo.revision ?? 'N/A'}</p>
+        <p className="text-sm">Status: {nodeInfo.status}</p>
+        <p className="text-sm">Uptime: {nodeInfo.uptime}</p>
+        {nodeInfo.peers !== undefined && (
+          <p className="text-sm">Connected Peers: {nodeInfo.peers}</p>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background flex flex-col dark terminal-display`}>
+    <div className={cn("min-h-screen bg-background font-sans antialiased", geistSans.variable, geistMono.variable)}>
       <Head>
-        <title>FileShare - Secure File Sharing</title>
-        <meta name="description" content="Securely share files with anyone" />
+        <title>Codex File Transfer</title>
+        <meta name="description" content="Secure P2P file transfer powered by Codex" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
       
       {/* Copy Success Toast */}
@@ -1407,6 +1453,11 @@ export default function Home() {
           </Tabs>
         </div>
       </main>
+      
+      {/* Node info section */}
+      <div className="mt-4">
+        {renderNodeInfo()}
+      </div>
       
       <style jsx global>{`
         .terminal-display {
