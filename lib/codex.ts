@@ -224,7 +224,7 @@ export class CodexClient {
     try {
       const url = `${this.baseUrl}/v1/data`;
       
-      return new Promise((resolve) => { // Removed unused reject parameter
+      return new Promise((resolve) => {
         const xhr = new XMLHttpRequest();
         
         // Set up progress tracking
@@ -256,7 +256,8 @@ export class CodexClient {
               try {
                 response = JSON.parse(xhr.responseText);
                 console.log('Parsed JSON response:', response);
-              } catch (parseError) {
+              } catch {
+                // Response is not JSON, using raw text
                 console.log('Response is not JSON, using raw text');
                 response = xhr.responseText.trim();
               }
@@ -287,9 +288,9 @@ export class CodexClient {
                 success: true, 
                 id: cid
               });
-            } catch (e) {
+            } catch {
               // If response is not JSON but status is success
-              console.warn('Failed to parse Codex upload response:', e);
+              console.warn('Failed to parse Codex upload response');
               console.log('Raw response text:', xhr.responseText);
               
               // If the response is a plain string, it might be the CID directly
@@ -306,7 +307,7 @@ export class CodexClient {
               const errorResponse = JSON.parse(xhr.responseText);
               errorMessage = errorResponse.error || errorMessage;
               console.error('Error response:', errorResponse);
-            } catch (e) {
+            } catch {
               // If error response is not JSON
               errorMessage = `Upload failed with status ${xhr.status}: ${xhr.responseText}`;
               console.error('Error response (not JSON):', xhr.responseText);
@@ -314,46 +315,40 @@ export class CodexClient {
             resolve({ success: false, error: errorMessage });
           }
         };
-        
+
         xhr.onerror = function() {
           console.error('Network error during upload');
           resolve({ success: false, error: 'Network error occurred during upload' });
         };
-        
+
         xhr.send(file);
       });
     } catch (error) {
-      // Handle errors without using unused variable
-      console.error('Error during file upload:', error instanceof Error ? error.message : 'Unknown error');
+      // Handle network errors more gracefully
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timed out. The Codex node might be unresponsive.',
+        };
+      }
+      
+      // For network errors (like when node is not running)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          success: false,
+          error: 'Cannot connect to Codex node. Please check if it is running.',
+        };
+      }
+      
+      // For other errors
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error uploading file:', error);
+      }
+      
       return {
         success: false,
-        error: 'Failed to upload file',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }
 }
-
-// Create a singleton instance for use throughout the app
-let codexClientInstance: CodexClient | null = null;
-
-/**
- * Get the CodexClient instance (creates one if it doesn't exist)
- * @param baseUrl - Optional base URL to initialize or update the client
- * @returns The CodexClient instance
- */
-export function getCodexClient(baseUrl?: string): CodexClient {
-  if (!codexClientInstance) {
-    codexClientInstance = new CodexClient(baseUrl);
-  } else if (baseUrl) {
-    codexClientInstance.updateBaseUrl(baseUrl);
-  }
-  
-  return codexClientInstance;
-}
-
-/**
- * Reset the CodexClient instance (useful for testing)
- */
-export function resetCodexClient(): void {
-  codexClientInstance = null;
-} 
