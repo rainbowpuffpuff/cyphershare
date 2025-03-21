@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCodexClient, CodexClient } from '@/lib/codex';
+import { CodexClient, getCodexClient } from '@/lib/codex';
 
 /**
  * React hook for using the Codex client in components
