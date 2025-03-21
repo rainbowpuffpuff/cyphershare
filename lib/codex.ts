@@ -9,7 +9,7 @@ export interface CodexNodeInfo {
   status: string;
   uptime: string;
   peers?: number;
-  [key: string]: unknown; // Changed from any to unknown for better type safety
+  [key: string]: unknown; // For any additional fields in the response
 }
 
 interface CodexApiResponse<T> {
@@ -351,4 +351,29 @@ export class CodexClient {
       };
     }
   }
+}
+
+// Create a singleton instance for use throughout the app
+let codexClientInstance: CodexClient | null = null;
+
+/**
+ * Get the CodexClient instance (creates one if it doesn't exist)
+ * @param baseUrl - Optional base URL to initialize or update the client
+ * @returns The CodexClient instance
+ */
+export function getCodexClient(baseUrl?: string): CodexClient {
+  if (!codexClientInstance) {
+    codexClientInstance = new CodexClient(baseUrl);
+  } else if (baseUrl) {
+    codexClientInstance.updateBaseUrl(baseUrl);
+  }
+  
+  return codexClientInstance;
+}
+
+/**
+ * Reset the CodexClient instance (useful for testing)
+ */
+export function resetCodexClient(): void {
+  codexClientInstance = null;
 }
