@@ -43,12 +43,9 @@ interface FileItem {
   fileId?: string; // Codex file ID
 }
 
-// Remove mock data
-const mockReceivedFiles: FileItem[] = [];
-
 // Update ExtendedNodeInfo interface
 interface ExtendedNodeInfo {
-  id?: string;
+  id: string;
   version: string;
   revision?: string;
   status: string;
@@ -695,7 +692,7 @@ export default function Home() {
     
     return (
       <div className="p-4 bg-muted rounded-lg">
-        <p className="text-sm">Node ID: {nodeInfo.id ?? 'N/A'}</p>
+        <p className="text-sm">Node ID: {nodeInfo.id}</p>
         <p className="text-sm">Version: {nodeInfo.version}</p>
         <p className="text-sm">Revision: {nodeInfo.revision ?? 'N/A'}</p>
         <p className="text-sm">Status: {nodeInfo.status}</p>
@@ -925,17 +922,15 @@ export default function Home() {
                                 <p className="text-xs font-mono flex items-center justify-between">
                                   <span className="text-muted-foreground">ID:</span>
                                   <span className="text-primary/80 truncate max-w-[180px]" title={nodeInfo.id}>
-                                    {nodeInfo.id.substring(0, 10)}...{nodeInfo.id.substring(nodeInfo.id.length - 4)}
+                                    {nodeInfo.id}
                                   </span>
                                 </p>
-                                {nodeInfo.codex && (
-                                  <p className="text-xs font-mono flex items-center justify-between">
-                                    <span className="text-muted-foreground">VERSION:</span>
-                                    <span className="text-primary/80">
-                                      {nodeInfo.codex.version} ({nodeInfo.codex.revision.substring(0, 7)})
-                                    </span>
-                                  </p>
-                                )}
+                                <p className="text-xs font-mono flex items-center justify-between">
+                                  <span className="text-muted-foreground">VERSION:</span>
+                                  <span className="text-primary/80">
+                                    {nodeInfo.version} ({nodeInfo.revision ?? 'N/A'})
+                                  </span>
+                                </p>
                               </div>
                             </div>
                           )}
