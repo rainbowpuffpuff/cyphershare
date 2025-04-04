@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info, Waypoints } from "lucide-react";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -697,10 +697,10 @@ export default function Home() {
             {/* Logo */}
             <div className="flex items-center gap-3 group md:w-1/4">
               <div className="p-2 rounded-lg bg-primary/15 shadow-sm group-hover:bg-primary/20 transition-all duration-300 border border-primary/10">
-                <Terminal size={22} className="text-primary group-hover:scale-110 transition-transform duration-300" />
+                <Waypoints size={22} className="text-primary group-hover:scale-110 transition-transform duration-300" />
               </div>
               <div className="flex items-center">
-                <span className="font-bold text-lg tracking-tight font-mono">FileShare</span>
+                <span className="font-bold text-lg tracking-tight font-mono">CypherShare</span>
               </div>
               <div className="hidden md:flex items-center h-6 px-2.5 rounded-full bg-muted/60 border border-border text-xs font-medium text-muted-foreground font-mono">
                 alpha
@@ -766,7 +766,7 @@ export default function Home() {
             {/* Icons */}
             <div className="flex items-center gap-3 shrink-0 md:w-1/4 md:justify-end">
               <a 
-                href="https://github.com/hackyguru/codex-waku-example" 
+                href="https://github.com/hackyguru/cyphershare" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2.5 rounded-full hover:bg-accent/80 hover:scale-105 transition-all duration-200 flex items-center justify-center border border-primary/20"
