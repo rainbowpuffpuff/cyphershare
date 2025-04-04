@@ -79,7 +79,9 @@ export default function Home() {
     checkNodeStatus: checkCodexStatus,
     error: codexError,
     getNodeInfo,
-    getCodexClient
+    getCodexClient,
+    testDirectUpload: codexTestUpload,
+    downloadFile
   } = useCodex(codexNodeUrl);
 
   // Add a debug state for Waku messages
@@ -431,61 +433,22 @@ export default function Home() {
     }
     
     try {
-      // Create a test file with timestamp to ensure uniqueness
-      const timestamp = new Date().toISOString();
-      const testContent = `This is a test file created at ${timestamp}`;
-      const blob = new Blob([testContent], { type: 'text/plain' });
-      const fileName = `test-file-${Date.now()}.txt`;
+      const result = await codexTestUpload();
       
-      console.log('Uploading test file directly to Codex API...');
-      console.log(`URL: ${codexNodeUrl}/v1/data`);
-      console.log(`File: ${fileName}`);
-      
-      // Direct fetch to the API
-      const response = await fetch(`${codexNodeUrl}/v1/data`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-          'Content-Disposition': `attachment; filename="${fileName}"`,
-        },
-        body: blob
-      });
-      
-      console.log('========== DIRECT UPLOAD RESPONSE ==========');
-      console.log('Status:', response.status);
-      console.log('Status Text:', response.statusText);
-      console.log('Headers:');
-      response.headers.forEach((value, key) => {
-        console.log(`  ${key}: ${value}`);
-      });
-      
-      // Try to get the response as text first
-      const responseText = await response.text();
-      console.log('Response Text:', responseText);
-      console.log('===========================================');
-      
-      // Try to parse as JSON if possible
-      try {
-        const jsonResponse = JSON.parse(responseText);
-        console.log('Parsed JSON response:', jsonResponse);
-        
-        // Extract CID
-        const cid = jsonResponse.id || jsonResponse.cid || 
-          (jsonResponse.data && (jsonResponse.data.id || jsonResponse.data.cid));
-        
-        if (cid) {
-          console.log('%c Direct upload CID: ' + cid, 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
-          setCopySuccess(`Direct upload successful. CID: ${cid}`);
-          setTimeout(() => setCopySuccess(null), 5000);
+      if (result.success) {
+        if (result.id) {
+          setCopySuccess(`Direct upload successful. CID: ${result.id}`);
+        } else {
+          setCopySuccess(result.message || 'Direct upload successful');
         }
-      } catch {
-        // If not JSON, the response text might be the CID directly
-        if (responseText && response.ok) {
-          console.log('%c Direct upload CID (from text): ' + responseText.trim(), 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
-          setCopySuccess(`Direct upload successful. CID: ${responseText.trim()}`);
-          setTimeout(() => setCopySuccess(null), 5000);
-        }
+      } else {
+        setUploadError(result.error || 'Upload failed with unknown error');
       }
+      
+      setTimeout(() => {
+        setCopySuccess(null);
+        setUploadError(null);
+      }, 5000);
     } catch (error) {
       console.error('Error in direct upload test:', error);
       setUploadError(`Direct upload test failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -590,31 +553,19 @@ export default function Home() {
       try {
         setCopySuccess(`Fetching file metadata...`);
         
-        // Step 1: Get the file metadata
-        const metadataUrl = `${codexNodeUrl}/v1/data/${file.fileId}/network`;
-        console.log(`Fetching metadata from: ${metadataUrl}`);
+        // Download the file using the CodexClient
+        const result = await downloadFile(file.fileId);
         
-        const metadataResponse = await axios.post(metadataUrl);
-        const { manifest } = metadataResponse.data;
-        const { filename, mimetype } = manifest;
+        if (!result.success || !result.data || !result.metadata) {
+          throw new Error(result.error || 'Failed to download file');
+        }
         
-        console.log('File metadata:', {
-          filename,
-          mimetype,
-          manifest
-        });
+        // Get data from successful download
+        const { data: blob, metadata: { filename, mimetype } } = result;
         
-        // Step 2: Download the file content
         setCopySuccess(`Downloading ${filename}...`);
-        const downloadUrl = `${codexNodeUrl}/v1/data/${file.fileId}/network/stream`;
-        console.log(`Downloading file from: ${downloadUrl}`);
         
-        const fileResponse = await axios.get(downloadUrl, {
-          responseType: 'blob'
-        });
-        
-        // Step 3: Create a download link for the file
-        const blob = new Blob([fileResponse.data], { type: mimetype });
+        // Create a download link for the file
         const url = URL.createObjectURL(blob);
         
         const a = document.createElement('a');
@@ -707,7 +658,15 @@ export default function Home() {
     <div className={cn("min-h-screen bg-background font-sans antialiased", geistSans.variable, geistMono.variable)}>
       <Head>
         <title>Codex File Transfer</title>
-        <meta name="description" content="Secure P2P file transfer powered by Codex" />
+        <meta name="description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta property="og:title" content="Codex File Transfer" />
+        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="Codex File Transfer" />
+        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
@@ -807,7 +766,7 @@ export default function Home() {
             {/* Icons */}
             <div className="flex items-center gap-3 shrink-0 md:w-1/4 md:justify-end">
               <a 
-                href="https://github.com" 
+                href="https://github.com/hackyguru/codex-waku-example" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2.5 rounded-full hover:bg-accent/80 hover:scale-105 transition-all duration-200 flex items-center justify-center border border-primary/20"
@@ -910,6 +869,16 @@ export default function Home() {
                             </p>
                           )}
                           
+                          {/* Alert for adblocker when node is inactive */}
+                          {!isCodexNodeActive && !isCodexLoading && (
+                            <div className="mt-2 p-2 bg-amber-600/20 border border-amber-600/30 rounded-md">
+                              <p className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                Turn off adblockers to avoid Codex node detection issues
+                              </p>
+                            </div>
+                          )}
+                          
                           {/* Display Node ID and Version when active */}
                           {isCodexNodeActive && nodeInfo && (
                             <div className="mt-3 p-2 bg-card/50 border border-primary/10 rounded-md">
@@ -975,21 +944,34 @@ export default function Home() {
                           <p className="text-xs text-muted-foreground font-mono">
                             Select Waku node type
                           </p>
+                          
+                          {/* Alert for relay node */}
+                          {wakuNodeType === 'relay' && (
+                            <div className="mt-2 p-2 bg-amber-600/20 border border-amber-600/30 rounded-md">
+                              <p className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                Relay node integration is not available yet
+                              </p>
+                            </div>
+                          )}
                         </div>
                         
-                        <div className="space-y-2">
-                          <label htmlFor="waku-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
-                          <Input 
-                            id="waku-url"
-                            value={wakuNodeUrl}
-                            onChange={(e) => setWakuNodeUrl(e.target.value)}
-                            placeholder="http://127.0.0.1:8645"
-                            className="font-mono text-sm bg-card/70"
-                          />
-                          <p className="text-xs text-muted-foreground font-mono">
-                            nwaku node API endpoint URL
-                          </p>
-                        </div>
+                        {/* API_ENDPOINT - only show for RELAY_NODE */}
+                        {wakuNodeType === 'relay' && (
+                          <div className="space-y-2">
+                            <label htmlFor="waku-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
+                            <Input 
+                              id="waku-url"
+                              value={wakuNodeUrl}
+                              onChange={(e) => setWakuNodeUrl(e.target.value)}
+                              placeholder="http://127.0.0.1:8645"
+                              className="font-mono text-sm bg-card/70"
+                            />
+                            <p className="text-xs text-muted-foreground font-mono">
+                              nwaku node API endpoint URL
+                            </p>
+                          </div>
+                        )}
                         
                         {/* Waku Status Information */}
                         {wakuNodeType === 'light' && (

@@ -1,11 +1,20 @@
 /**
- * Codex API client and React hook for interacting with Codex nodes
- * This file contains both the core client implementation and the React hook
+ * useCodex.ts - Central file for Codex API functionality
+ * 
+ * This file contains:
+ * 1. Type definitions for Codex API
+ * 2. CodexClient class implementation 
+ * 3. Singleton management functions
+ * 4. React hook for component integration
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
-// Types for Codex API responses
+//-----------------------------------------------------------------------------
+// TYPE DEFINITIONS
+//-----------------------------------------------------------------------------
+
 export interface CodexNodeInfo {
   version: string;
   status: string;
@@ -19,6 +28,19 @@ interface CodexApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+export interface FileMetadata {
+  manifest: {
+    filename: string;
+    mimetype: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+//-----------------------------------------------------------------------------
+// CODEX CLIENT IMPLEMENTATION
+//-----------------------------------------------------------------------------
 
 /**
  * Class to handle all Codex-related operations
@@ -352,7 +374,176 @@ export class CodexClient {
       };
     }
   }
+
+  /**
+   * Test direct upload to Codex node
+   * @returns Promise resolving to upload result with CID or error
+   */
+  public async testDirectUpload(): Promise<{ success: boolean; id?: string; message?: string; error?: string }> {
+    try {
+      // Create a test file with timestamp to ensure uniqueness
+      const timestamp = new Date().toISOString();
+      const testContent = `This is a test file created at ${timestamp}`;
+      const blob = new Blob([testContent], { type: 'text/plain' });
+      const fileName = `test-file-${Date.now()}.txt`;
+      
+      console.log('Uploading test file directly to Codex API...');
+      console.log(`URL: ${this.baseUrl}/v1/data`);
+      console.log(`File: ${fileName}`);
+      
+      // Direct fetch to the API
+      const response = await fetch(`${this.baseUrl}/v1/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+        body: blob
+      });
+      
+      console.log('========== DIRECT UPLOAD RESPONSE ==========');
+      console.log('Status:', response.status);
+      console.log('Status Text:', response.statusText);
+      console.log('Headers:');
+      response.headers.forEach((value, key) => {
+        console.log(`  ${key}: ${value}`);
+      });
+      
+      // Try to get the response as text first
+      const responseText = await response.text();
+      console.log('Response Text:', responseText);
+      console.log('===========================================');
+      
+      // Try to parse as JSON if possible
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        console.log('Parsed JSON response:', jsonResponse);
+        
+        // Extract CID
+        const cid = jsonResponse.id || jsonResponse.cid || 
+          (jsonResponse.data && (jsonResponse.data.id || jsonResponse.data.cid));
+        
+        if (cid) {
+          console.log('%c Direct upload CID: ' + cid, 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+          return { success: true, id: cid, message: `Direct upload successful. CID: ${cid}` };
+        }
+        return { success: true, id: 'unknown-id', message: 'Upload successful but no CID found' };
+      } catch {
+        // If not JSON, the response text might be the CID directly
+        if (responseText && response.ok) {
+          console.log('%c Direct upload CID (from text): ' + responseText.trim(), 'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+          return { success: true, id: responseText.trim(), message: `Direct upload successful. CID: ${responseText.trim()}` };
+        }
+        
+        // Something went wrong but we got a 200 OK response
+        if (response.ok) {
+          return { success: true, message: 'Upload successful but response format is unexpected' };
+        }
+        
+        // Error response
+        return { success: false, error: `Upload failed with status ${response.status}: ${responseText}` };
+      }
+    } catch (error) {
+      console.error('Error in direct upload test:', error);
+      return { 
+        success: false, 
+        error: `Direct upload test failed: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  }
+  
+  /**
+   * Get file metadata from Codex
+   * @param fileId - The Codex file ID (CID)
+   * @returns Promise resolving to file metadata
+   */
+  public async getFileMetadata(fileId: string): Promise<{ success: boolean; metadata?: FileMetadata; error?: string }> {
+    try {
+      const metadataUrl = `${this.baseUrl}/v1/data/${fileId}/network`;
+      console.log(`Fetching metadata from: ${metadataUrl}`);
+      
+      const metadataResponse = await axios.post(metadataUrl);
+      return { success: true, metadata: metadataResponse.data };
+    } catch (error) {
+      console.error('Error fetching file metadata:', error);
+      let errorMessage = 'Failed to fetch file metadata';
+      
+      if (axios.isAxiosError(error)) {
+        errorMessage += `: ${error.response?.status || ''} ${error.message}`;
+        console.error('API error details:', error.response?.data);
+      } else if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      return { success: false, error: errorMessage };
+    }
+  }
+  
+  /**
+   * Download a file from Codex
+   * @param fileId - The Codex file ID (CID)
+   * @returns Promise resolving to file data and metadata
+   */
+  public async downloadFile(fileId: string): Promise<{ 
+    success: boolean; 
+    data?: Blob; 
+    metadata?: {
+      filename: string;
+      mimetype: string;
+    }; 
+    error?: string 
+  }> {
+    try {
+      // Step 1: Get the file metadata
+      const metadataResult = await this.getFileMetadata(fileId);
+      if (!metadataResult.success || !metadataResult.metadata) {
+        return { success: false, error: metadataResult.error || 'Failed to fetch file metadata' };
+      }
+      
+      const { manifest } = metadataResult.metadata;
+      const { filename, mimetype } = manifest;
+      
+      console.log('File metadata:', {
+        filename,
+        mimetype,
+        manifest
+      });
+      
+      // Step 2: Download the file content
+      const downloadUrl = `${this.baseUrl}/v1/data/${fileId}/network/stream`;
+      console.log(`Downloading file from: ${downloadUrl}`);
+      
+      const fileResponse = await axios.get(downloadUrl, {
+        responseType: 'blob'
+      });
+      
+      return {
+        success: true,
+        data: fileResponse.data,
+        metadata: {
+          filename,
+          mimetype
+        }
+      };
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      let errorMessage = 'Failed to download file';
+      
+      if (axios.isAxiosError(error)) {
+        errorMessage += `: ${error.response?.status || ''} ${error.message}`;
+        console.error('API error details:', error.response?.data);
+      } else if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      return { success: false, error: errorMessage };
+    }
+  }
 }
+
+//-----------------------------------------------------------------------------
+// SINGLETON MANAGEMENT
+//-----------------------------------------------------------------------------
 
 // Create a singleton instance for use throughout the app
 let codexClientInstance: CodexClient | null = null;
@@ -378,6 +569,10 @@ export function getCodexClient(baseUrl?: string): CodexClient {
 export function resetCodexClient(): void {
   codexClientInstance = null;
 }
+
+//-----------------------------------------------------------------------------
+// REACT HOOK
+//-----------------------------------------------------------------------------
 
 /**
  * React hook for using the Codex client in components
@@ -443,5 +638,7 @@ export function useCodex(initialUrl?: string) {
     baseUrl: client.getBaseUrl(),
     getNodeInfo: client.getNodeInfo.bind(client),
     getCodexClient: () => getCodexClient(),
+    testDirectUpload: client.testDirectUpload.bind(client),
+    downloadFile: client.downloadFile.bind(client),
   };
 } 
