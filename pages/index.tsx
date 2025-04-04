@@ -17,7 +17,7 @@ import {
   SheetClose,
   SheetTrigger
 } from "@/components/ui/sheet";
-import { useCodex } from "@/hooks/useCodex";
+import { useCodex, CodexClient, getCodexClient } from "@/hooks/useCodex";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
 import axios from "axios";
 import { cn } from "@/lib/utils";

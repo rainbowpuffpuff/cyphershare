@@ -23,17 +23,16 @@ The application integrates with Codex nodes through a dedicated client implement
 
 The Codex integration is implemented using a modular architecture:
 
-1. **CodexClient Class** (`lib/codex.ts`):
+1. **CodexClient Class and useCodex Hook** (`hooks/useCodex.ts`):
+   - Contains the complete Codex implementation in a single file
    - Handles all API requests to Codex nodes
    - Manages node status checking and caching
    - Provides methods for interacting with Codex APIs
-
-2. **useCodex Hook** (`hooks/useCodex.ts`):
-   - React hook for using the Codex client in components
+   - Implements React hook for using the Codex client in components
    - Manages state for node status, loading, and errors
    - Provides methods for updating the API endpoint
 
-3. **UI Integration**:
+2. **UI Integration**:
    - Visual indicators for node status
    - Form for configuring the API endpoint
    - Error reporting and status messages
