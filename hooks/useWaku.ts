@@ -78,16 +78,19 @@ export const useWaku = ({
       // Create a light node with explicit protocols
       console.log('Creating Waku light node...');
       const lightNode = await createLightNode({
-        numPeersToUse: 3, // Increase number of peers for better connectivity
-        defaultBootstrap: true,
+        defaultBootstrap: false,
         networkConfig: {
-          contentTopics: [newContentTopic],
+          clusterId: 42,
+          shards: [0]
         },
       });
 
       // Start the node
       await lightNode.start();
       console.log('Waku node started');
+      await lightNode.dial("/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ");
+      await lightNode.dial("/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk");
+
 
       // Wait for peer connections with timeout
       console.log('Waiting for peers...');
@@ -96,7 +99,7 @@ export const useWaku = ({
         const timeout = 15000; // 15 seconds timeout
         await Promise.race([
           lightNode.waitForPeers([Protocols.LightPush, Protocols.Filter]),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Peer connection timeout')), timeout)
           )
         ]);
@@ -125,7 +128,7 @@ export const useWaku = ({
         if (lightNode) {
           const peers = await lightNode.libp2p.getPeers();
           setPeerCount(peers.length);
-          
+
           // Log connected peers for debugging
           if (process.env.NODE_ENV !== 'production') {
             console.log(`Connected to ${peers.length} Waku peers`);
@@ -158,108 +161,51 @@ export const useWaku = ({
   const subscribeToMessages = async (lightNode: LightNode, messageDecoder: any, topic: string) => {
     try {
       console.log('Setting up message subscription for topic:', topic);
-      
-      // Create a simple callback that logs and forwards messages
+
+      // Create a message handler callback
       const messageHandler = (wakuMessage: DecodedMessage) => {
         if (!wakuMessage.payload) {
           console.log('Received empty message payload');
           return;
         }
-        
+
         try {
           console.log('Raw message received:', {
             contentTopic: wakuMessage.contentTopic,
             timestamp: new Date().toISOString(),
             payloadLength: wakuMessage.payload.length
           });
-          
+
           // Decode the message using protobuf
           const decodedMessage = FileMessage.decode(wakuMessage.payload) as unknown as WakuFileMessage;
-          
+
           console.log('Successfully decoded message:', {
             fileName: decodedMessage.fileName,
             sender: decodedMessage.sender,
             fileId: decodedMessage.fileId,
             timestamp: new Date(decodedMessage.timestamp).toISOString()
           });
-          
+
           // Call the callback if provided
           if (onFileReceived) {
             onFileReceived(decodedMessage);
           }
         } catch (decodeError) {
           console.error('Failed to decode message:', decodeError);
-          console.log('Message payload (first 50 bytes):', 
+          console.log('Message payload (first 50 bytes):',
             new TextDecoder().decode(wakuMessage.payload.slice(0, 50)));
         }
       };
-      
-      // Try multiple subscription methods to ensure compatibility with different Waku SDK versions
-      
-      // Method 1: Direct filter subscription (newer SDK versions)
-      try {
-        console.log('Attempting direct filter subscription...');
-        await lightNode.filter.subscribe(messageDecoder, messageHandler);
-        console.log('✅ Direct filter subscription successful');
-        return;
-      } catch (error1) {
-        console.warn('Direct filter subscription failed:', error1);
-      }
-      
-      // Method 2: Using createSubscription (some SDK versions)
-      try {
-        console.log('Attempting subscription via createSubscription...');
-        // @ts-ignore - API might have changed between versions
-        const subscription = await lightNode.filter.createSubscription();
-        if (subscription) {
-          await subscription.subscribe([messageDecoder], messageHandler);
-          setSubscription(subscription);
-          console.log('✅ Subscription via createSubscription successful');
-          return;
-        }
-      } catch (error2) {
-        console.warn('createSubscription method failed:', error2);
-      }
-      
-      // Method 3: Using filter.subscribe with array (older SDK versions)
-      try {
-        console.log('Attempting subscription with decoder array...');
-        // @ts-ignore - API might have changed between versions
-        await lightNode.filter.subscribe([messageDecoder], messageHandler);
-        console.log('✅ Subscription with decoder array successful');
-        return;
-      } catch (error3) {
-        console.warn('Subscription with decoder array failed:', error3);
-      }
-      
-      // Method 4: Last resort - try to use any available method on the filter object
-      try {
-        console.log('Attempting to discover available filter methods...');
-        const filterMethods = Object.keys(lightNode.filter).filter(key => 
-          typeof (lightNode.filter as any)[key] === 'function' && 
-          (key.includes('subscribe') || key.includes('create'))
-        );
-        
-        console.log('Available filter methods:', filterMethods);
-        
-        if (filterMethods.includes('subscribe')) {
-          // Try with different argument patterns
-          try {
-            // @ts-ignore
-            await (lightNode.filter as any).subscribe(topic, messageHandler);
-            console.log('✅ Topic-based subscription successful');
-            return;
-          } catch (e) {
-            console.warn('Topic-based subscription failed:', e);
-          }
-        }
-      } catch (error4) {
-        console.warn('Method discovery failed:', error4);
-      }
-      
-      // If we get here, all subscription methods failed
-      throw new Error('All subscription methods failed');
-      
+
+      // Subscribe using the standard filter subscription
+      const subscription = await lightNode.filter.subscribe(
+        [messageDecoder],
+        messageHandler
+      );
+
+      setSubscription(subscription);
+      console.log('✅ Message subscription setup complete');
+
     } catch (err) {
       console.error('❌ Error in message subscription process:', err);
       setError('Failed to subscribe to messages: ' + (err instanceof Error ? err.message : String(err)));
@@ -274,9 +220,9 @@ export const useWaku = ({
     fileId: string;
   }) => {
     if (!node || !encoder || !isConnected) {
-      console.error('Cannot send message: Waku node is not connected', { 
-        node: !!node, 
-        encoder: !!encoder, 
+      console.error('Cannot send message: Waku node is not connected', {
+        node: !!node,
+        encoder: !!encoder,
         isConnected,
         peerCount
       });
@@ -286,7 +232,7 @@ export const useWaku = ({
 
     try {
       console.log('🚀 Preparing to send file message:', fileData);
-      
+
       // Generate a unique sender ID if not already available
       // This helps with identifying our own messages
       const getTabSpecificSenderId = () => {
@@ -295,22 +241,22 @@ export const useWaku = ({
         if (!sessionStorage.getItem('wakuTabId')) {
           sessionStorage.setItem('wakuTabId', tabId);
         }
-        
+
         // Get or create the user ID from localStorage
         const userId = localStorage.getItem('wakuUserId') || `user-${Math.random().toString(36).substring(2, 10)}`;
         if (!localStorage.getItem('wakuUserId')) {
           localStorage.setItem('wakuUserId', userId);
         }
-        
+
         // Combine them for a tab-specific sender ID
         return `${userId}-${tabId}`;
       };
-      
+
       const senderId = getTabSpecificSenderId();
-      
+
       // Store the current sender ID in sessionStorage for this tab only
       sessionStorage.setItem('wakuSenderId', senderId);
-      
+
       // Create a new message object
       const protoMessage = FileMessage.create({
         timestamp: Date.now(),
@@ -323,7 +269,7 @@ export const useWaku = ({
 
       // Serialize the message using Protobuf
       const serializedMessage = FileMessage.encode(protoMessage).finish();
-      
+
       console.log('📦 Message prepared:', {
         contentTopic,
         sender: senderId,
@@ -346,9 +292,9 @@ export const useWaku = ({
       const result = await node.lightPush.send(encoder, {
         payload: serializedMessage,
       });
-      
+
       console.log('✅ File message sent successfully:', result);
-      
+
       // For debugging: Try to receive our own message to verify it's formatted correctly
       try {
         console.log('Verifying message format by decoding our own message...');
@@ -358,7 +304,7 @@ export const useWaku = ({
         console.error('⚠️ Message verification failed:', verifyError);
         // Continue anyway as this is just a verification step
       }
-      
+
       return true;
     } catch (err) {
       console.error('❌ Error sending file message:', err);
@@ -380,14 +326,14 @@ export const useWaku = ({
         if (node) {
           node.stop();
         }
-        
+
         // Reset state
         setIsConnected(false);
         setNode(null);
         setEncoder(null);
         setDecoder(null);
         setSubscription(null);
-        
+
         // Initialize with new room ID
         initWaku();
       }
@@ -406,7 +352,7 @@ export const useWaku = ({
       if (node) {
         node.stop();
       }
-      
+
       // Reset state
       setIsConnected(false);
       setNode(null);
@@ -414,7 +360,7 @@ export const useWaku = ({
       setDecoder(null);
       setSubscription(null);
     }
-    
+
     // Cleanup function
     return () => {
       if (subscription) {
@@ -429,7 +375,7 @@ export const useWaku = ({
   // Function to manually reconnect
   const reconnect = useCallback(async () => {
     console.log('Manual reconnection requested');
-    
+
     // Clean up existing connection
     if (subscription) {
       try {
@@ -438,7 +384,7 @@ export const useWaku = ({
         console.warn('Error unsubscribing:', e);
       }
     }
-    
+
     if (node) {
       try {
         await node.stop();
@@ -446,7 +392,7 @@ export const useWaku = ({
         console.warn('Error stopping node:', e);
       }
     }
-    
+
     // Reset state
     setIsConnected(false);
     setNode(null);
@@ -454,7 +400,7 @@ export const useWaku = ({
     setDecoder(null);
     setSubscription(null);
     setError(null);
-    
+
     // Small delay before reconnecting
     setTimeout(() => {
       initWaku();
