@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   createLightNode,
-  createEncoder,
-  createDecoder,
+
   DecodedMessage,
   LightNode,
   Protocols,
@@ -110,12 +109,12 @@ export const useWaku = ({
       }
 
       // Create encoder and decoder
-      const newEncoder = createEncoder({
+      const newEncoder = lightNode.createEncoder({
         contentTopic: newContentTopic,
         ephemeral: true,
       });
 
-      const newDecoder = createDecoder(newContentTopic);
+      const newDecoder = lightNode.createDecoder({contentTopic: newContentTopic});
 
       setNode(lightNode);
       setEncoder(newEncoder);
