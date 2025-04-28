@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   createLightNode,
-
   DecodedMessage,
   LightNode,
   Protocols,
