@@ -49,7 +49,7 @@ Key points:
 - Files are encrypted in the browser _before_ they are uploaded to Codex; only ciphertext ever leaves the client.
 - Decryption happens on-demand and only when the connected wallet satisfies the defined TACo **Condition**s.
 - Helper utilities are provided for two common conditions as examples of using TACo:
-  - **Positive balance** of MATIC (Polygon Amoy)
+  - **Positive balance** of POL (Polygon Amoy)
   - **Time-limited** access (N seconds from upload)
 - You can define any arbitrary on-chain condition by instantiating a TACo `Condition` in your code.
 - Wallet connectivity (handled transparently by `WalletProvider` and the **Connect Wallet** button) is only required to sign TACo encryption/decryption requests.
