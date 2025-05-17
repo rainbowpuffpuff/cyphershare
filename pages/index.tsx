@@ -1322,46 +1322,12 @@ export default function Home() {
             <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
           </div>
 
-          {/* Uploading Files Progress */}
-          {Object.keys(uploadingFiles).length > 0 && (
-            <div className="mb-8 space-y-4">
-              <h3 className="text-sm font-medium font-mono flex items-center gap-2">
-                <Upload size={14} className="text-primary" />
-                UPLOADING_FILES
-              </h3>
-              <div className="space-y-3">
-                {Object.entries(uploadingFiles).map(([fileId, file]) => (
-                  <div key={fileId} className="p-3 bg-card rounded-lg border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                          {getFileIcon(file.type)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-mono">{file.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{file.size.toFixed(2)} MB</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-mono text-primary">{file.progress}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className="bg-primary h-full transition-all duration-300 ease-in-out" 
-                        style={{ width: `${file.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Sent and Received Files Tabs */}
           <Tabs defaultValue="sent" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4 font-mono">
               <TabsTrigger value="sent" className="flex items-center gap-2">
                 <Upload size={16} />
-                SENT_FILES
+                SENT_FILES {Object.keys(uploadingFiles).length > 0 && `(${Object.keys(uploadingFiles).length} uploading)`}
               </TabsTrigger>
               <TabsTrigger value="received" className="flex items-center gap-2">
                 <Download size={16} />
@@ -1376,8 +1342,44 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
                   <div className="h-[250px] overflow-y-auto overflow-x-hidden p-4 relative">
-                    {sentFiles.length > 0 ? (
+                    {sentFiles.length > 0 || Object.keys(uploadingFiles).length > 0 ? (
                       <div className="space-y-3">
+                        {/* Show uploading files first */}
+                        {Object.entries(uploadingFiles).map(([fileId, file]) => (
+                          <div 
+                            key={fileId} 
+                            className={cn(
+                              "flex items-center justify-between p-3 bg-muted rounded-lg border border-primary/20",
+                              "hover:border-primary/30 hover:bg-accent/50 transition-colors w-full animate-pulse"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0">
+                                {getFileIcon(file.type)}
+                              </div>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm font-mono truncate">{file.name}</p>
+                                  <span className="text-xs text-primary/70 font-mono">
+                                    {file.progress}%
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground font-mono truncate">
+                                  {file.size.toFixed(2)} MB • Uploading...
+                                </p>
+                                {/* Progress bar */}
+                                <div className="w-full bg-muted-foreground/20 rounded-full h-1 mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-primary h-full transition-all duration-300 ease-in-out" 
+                                    style={{ width: `${file.progress}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Show sent files */}
                         {sentFiles.map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors w-full">
                             <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
