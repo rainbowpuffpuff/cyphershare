@@ -56,7 +56,8 @@ export default function Home() {
   const [roomId, setRoomId] = useState("XYZ123");
   const [isEditingRoom, setIsEditingRoom] = useState(false);
   const [copiedRoom, setCopiedRoom] = useState(false);
-  const [codexNodeUrl, setCodexNodeUrl] = useState("http://localhost:8080/api/codex");
+  const [codexNodeUrl, setCodexNodeUrl] = useState(process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "");
+  const [codexEndpointType, setCodexEndpointType] = useState<'remote' | 'local'>('remote');
   const [wakuNodeUrl, setWakuNodeUrl] = useState("http://127.0.0.1:8645");
   const [wakuNodeType, setWakuNodeType] = useState("light");
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +76,7 @@ export default function Home() {
   const { 
     isNodeActive: isCodexNodeActive, 
     isLoading: isCodexLoading,
-    updateBaseUrl: updateCodexUrl,
+    updateConfig,
     checkNodeStatus: checkCodexStatus,
     error: codexError,
     getNodeInfo,
@@ -607,18 +608,24 @@ export default function Home() {
     setCodexNodeUrl(event.target.value);
   };
 
-  // Update Codex URL when Save button is clicked
+  // Add handleEndpointTypeChange
+  const handleEndpointTypeChange = (type: 'remote' | 'local') => {
+    setCodexEndpointType(type);
+    setCodexNodeUrl(type === 'remote' 
+      ? process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "" 
+      : process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || "");
+  };
+
+  // Update handleSaveConfig
   const handleSaveConfig = () => {
-    // Basic URL validation
     if (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http')) {
       alert('Please enter a valid URL starting with http:// or https://');
       return;
     }
     
     setIsSaving(true);
-    updateCodexUrl(codexNodeUrl);
+    updateConfig(codexNodeUrl, codexEndpointType);
     
-    // Show success indicator briefly
     setSaveSuccess(true);
     setTimeout(() => {
       setIsSaving(false);
@@ -815,6 +822,34 @@ export default function Home() {
                       </div>
                       
                       <div className="space-y-4 pl-2 ml-2 border-l border-border">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium font-mono">ENDPOINT_TYPE</label>
+                          <Tabs 
+                            value={codexEndpointType} 
+                            onValueChange={(value) => handleEndpointTypeChange(value as 'remote' | 'local')}
+                            className="w-full"
+                          >
+                            <TabsList className="grid w-full grid-cols-2 font-mono">
+                              <TabsTrigger value="remote">REMOTE_NODE</TabsTrigger>
+                              <TabsTrigger value="local">LOCAL_NODE</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {codexEndpointType === 'remote' 
+                              ? "Use managed remote Codex node (recommended)" 
+                              : "Use local Codex node (advanced)"}
+                          </p>
+                          
+                          {codexEndpointType === 'remote' && (
+                            <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md">
+                              <p className="text-xs text-primary/90 font-mono flex items-center gap-1">
+                                <Info size={12} />
+                                Using managed Codex node with authentication
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="space-y-2">
                           <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
                           <Input 
