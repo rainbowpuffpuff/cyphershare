@@ -611,20 +611,36 @@ export default function Home() {
   // Add handleEndpointTypeChange
   const handleEndpointTypeChange = (type: 'remote' | 'local') => {
     setCodexEndpointType(type);
-    setCodexNodeUrl(type === 'remote' 
-      ? process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "" 
-      : process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || "");
+    
+    // Set appropriate URL based on endpoint type
+    const newUrl = type === 'remote' 
+      ? (process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "") 
+      : (process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || "http://localhost:8080/api/codex");
+    
+    setCodexNodeUrl(newUrl);
+    
+    // Immediately update the configuration
+    if (type === 'remote' && process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL) {
+      updateConfig(process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL, type);
+    }
   };
 
   // Update handleSaveConfig
   const handleSaveConfig = () => {
-    if (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http')) {
+    // Only validate URL for local endpoint
+    if (codexEndpointType === 'local' && (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http'))) {
       alert('Please enter a valid URL starting with http:// or https://');
       return;
     }
     
     setIsSaving(true);
-    updateConfig(codexNodeUrl, codexEndpointType);
+    
+    // Use the appropriate URL based on endpoint type
+    const urlToUse = codexEndpointType === 'remote'
+      ? process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || ""
+      : codexNodeUrl;
+      
+    updateConfig(urlToUse, codexEndpointType);
     
     setSaveSuccess(true);
     setTimeout(() => {
@@ -852,45 +868,87 @@ export default function Home() {
                         
                         <div className="space-y-2">
                           <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
-                          <Input 
-                            id="codex-url"
-                            value={codexNodeUrl}
-                            onChange={handleCodexUrlChange}
-                            placeholder="http://localhost:8080/api/codex"
-                            className="font-mono text-sm bg-card/70"
-                          />
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted-foreground font-mono">
-                              Codex node API endpoint URL
-                            </p>
-                            <div className="flex items-center gap-1">
-                              {isCodexNodeActive ? (
-                                <span className="text-xs text-green-500 font-mono flex items-center gap-1">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                  ACTIVE
-                                </span>
-                              ) : (
-                                <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
-                                  {isCodexLoading ? "CHECKING" : "OFFLINE"}
-                                </span>
-                              )}
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => checkCodexStatus(true)}
-                                className="h-6 w-6 p-0 rounded-full"
-                                title="Refresh node status"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                                  <path d="M21 3v5h-5"></path>
-                                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                                  <path d="M3 21v-5h5"></path>
-                                </svg>
-                              </Button>
+                          {codexEndpointType === 'local' ? (
+                            <>
+                              <Input 
+                                id="codex-url"
+                                value={codexNodeUrl}
+                                onChange={handleCodexUrlChange}
+                                placeholder="http://localhost:8080/api/codex"
+                                className="font-mono text-sm bg-card/70"
+                              />
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  Local Codex node API endpoint URL
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  {isCodexNodeActive ? (
+                                    <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                      ACTIVE
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
+                                      {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                    </span>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => checkCodexStatus(true)}
+                                    className="h-6 w-6 p-0 rounded-full"
+                                    title="Refresh node status"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                      <path d="M21 3v5h-5"></path>
+                                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                      <path d="M3 21v-5h5"></path>
+                                    </svg>
+                                  </Button>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="p-3 bg-card/70 rounded-lg border border-border">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-mono text-muted-foreground">
+                                  {process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL}
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  {isCodexNodeActive ? (
+                                    <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                      ACTIVE
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
+                                      {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                    </span>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => checkCodexStatus(true)}
+                                    className="h-6 w-6 p-0 rounded-full"
+                                    title="Refresh node status"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                      <path d="M21 3v5h-5"></path>
+                                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                      <path d="M3 21v-5h5"></path>
+                                    </svg>
+                                  </Button>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground font-mono mt-2">
+                                Using managed remote Codex node
+                              </p>
                             </div>
-                          </div>
+                          )}
                           {codexError && (
                             <p className="text-xs text-amber-600/90 font-mono mt-1 flex items-center gap-1">
                               <AlertCircle size={12} />
