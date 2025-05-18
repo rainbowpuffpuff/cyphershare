@@ -680,16 +680,18 @@ export default function Home() {
   return (
     <div className={cn("min-h-screen bg-background font-sans antialiased", geistSans.variable, geistMono.variable)}>
       <Head>
-        <title>Codex File Transfer</title>
+        <title>Cyphershare</title>
         <meta name="description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta property="og:title" content="Codex File Transfer" />
-        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta property="og:title" content="Cyphershare" />
+        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku built for the Cypherpunk community" />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content="/cyphershare-og.png" />
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="Codex File Transfer" />
-        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized" />
+        <meta name="twitter:title" content="Cyphershare" />
+        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku built for the Cypherpunk community" />
+        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized, cypherpunk, cyphershare, file sharing, web3" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="twitter:image" content="/cyphershare-og.png" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
