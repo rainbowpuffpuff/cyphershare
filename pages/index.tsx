@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info, Waypoints } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, AlertCircle, Info, Waypoints } from "lucide-react";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -17,7 +17,7 @@ import {
   SheetClose,
   SheetTrigger
 } from "@/components/ui/sheet";
-import { useCodex, CodexClient, getCodexClient } from "@/hooks/useCodex";
+import { useCodex } from "@/hooks/useCodex";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
 import axios from "axios";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,8 @@ export default function Home() {
   const [roomId, setRoomId] = useState("XYZ123");
   const [isEditingRoom, setIsEditingRoom] = useState(false);
   const [copiedRoom, setCopiedRoom] = useState(false);
-  const [codexNodeUrl, setCodexNodeUrl] = useState("http://localhost:8080/api/codex");
+  const [codexNodeUrl, setCodexNodeUrl] = useState(process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "");
+  const [codexEndpointType, setCodexEndpointType] = useState<'remote' | 'local'>('remote');
   const [wakuNodeUrl, setWakuNodeUrl] = useState("http://127.0.0.1:8645");
   const [wakuNodeType, setWakuNodeType] = useState("light");
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +76,7 @@ export default function Home() {
   const { 
     isNodeActive: isCodexNodeActive, 
     isLoading: isCodexLoading,
-    updateBaseUrl: updateCodexUrl,
+    updateConfig,
     checkNodeStatus: checkCodexStatus,
     error: codexError,
     getNodeInfo,
@@ -561,7 +562,7 @@ export default function Home() {
         }
         
         // Get data from successful download
-        const { data: blob, metadata: { filename, mimetype } } = result;
+        const { data: blob, metadata: { filename } } = result;
         
         setCopySuccess(`Downloading ${filename}...`);
         
@@ -607,18 +608,40 @@ export default function Home() {
     setCodexNodeUrl(event.target.value);
   };
 
-  // Update Codex URL when Save button is clicked
+  // Add handleEndpointTypeChange
+  const handleEndpointTypeChange = (type: 'remote' | 'local') => {
+    setCodexEndpointType(type);
+    
+    // Set appropriate URL based on endpoint type
+    const newUrl = type === 'remote' 
+      ? (process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "") 
+      : (process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || "http://localhost:8080/api/codex");
+    
+    setCodexNodeUrl(newUrl);
+    
+    // Immediately update the configuration
+    if (type === 'remote' && process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL) {
+      updateConfig(process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL, type);
+    }
+  };
+
+  // Update handleSaveConfig
   const handleSaveConfig = () => {
-    // Basic URL validation
-    if (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http')) {
+    // Only validate URL for local endpoint
+    if (codexEndpointType === 'local' && (!codexNodeUrl.trim() || !codexNodeUrl.startsWith('http'))) {
       alert('Please enter a valid URL starting with http:// or https://');
       return;
     }
     
     setIsSaving(true);
-    updateCodexUrl(codexNodeUrl);
     
-    // Show success indicator briefly
+    // Use the appropriate URL based on endpoint type
+    const urlToUse = codexEndpointType === 'remote'
+      ? process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || ""
+      : codexNodeUrl;
+      
+    updateConfig(urlToUse, codexEndpointType);
+    
     setSaveSuccess(true);
     setTimeout(() => {
       setIsSaving(false);
@@ -657,16 +680,18 @@ export default function Home() {
   return (
     <div className={cn("min-h-screen bg-background font-sans antialiased", geistSans.variable, geistMono.variable)}>
       <Head>
-        <title>Codex File Transfer</title>
+        <title>Cyphershare</title>
         <meta name="description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta property="og:title" content="Codex File Transfer" />
-        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta property="og:title" content="Cyphershare" />
+        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku built for the Cypherpunk community" />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content="/cyphershare-og.png" />
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="Codex File Transfer" />
-        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized" />
+        <meta name="twitter:title" content="Cyphershare" />
+        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku built for the Cypherpunk community" />
+        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized, cypherpunk, cyphershare, file sharing, web3" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="twitter:image" content="/cyphershare-og.png" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
@@ -739,25 +764,6 @@ export default function Home() {
                     {copiedRoom ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                   </Button>
                 </div>
-                {/* Waku connection indicator */}
-                {wakuNodeType === 'light' && (
-                  <div 
-                    className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-                      isWakuConnected 
-                        ? 'bg-green-500 animate-pulse' 
-                        : isWakuConnecting 
-                          ? 'bg-amber-500 animate-pulse' 
-                          : 'bg-red-500'
-                    }`}
-                    title={
-                      isWakuConnected 
-                        ? `Connected to Waku network (${wakuPeerCount} peers)` 
-                        : isWakuConnecting 
-                          ? 'Connecting to Waku network...' 
-                          : 'Not connected to Waku network'
-                    }
-                  ></div>
-                )}
                 {/* Scanline effect */}
                 <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </div>
@@ -783,7 +789,24 @@ export default function Home() {
                     aria-label="Open settings"
                   >
                     <Settings size={20} className="text-primary" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                    {wakuNodeType === 'light' && (
+                      <div 
+                        className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                          isWakuConnected 
+                            ? 'bg-green-500 animate-pulse' 
+                            : isWakuConnecting 
+                              ? 'bg-amber-500 animate-pulse' 
+                              : 'bg-red-500'
+                        }`}
+                        title={
+                          isWakuConnected 
+                            ? `Connected to Waku network (${wakuPeerCount} peers)` 
+                            : isWakuConnecting 
+                              ? 'Connecting to Waku network...' 
+                              : 'Not connected to Waku network'
+                        }
+                      ></div>
+                    )}
                   </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="p-5 flex flex-col">
@@ -816,46 +839,116 @@ export default function Home() {
                       
                       <div className="space-y-4 pl-2 ml-2 border-l border-border">
                         <div className="space-y-2">
-                          <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
-                          <Input 
-                            id="codex-url"
-                            value={codexNodeUrl}
-                            onChange={handleCodexUrlChange}
-                            placeholder="http://localhost:8080/api/codex"
-                            className="font-mono text-sm bg-card/70"
-                          />
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted-foreground font-mono">
-                              Codex node API endpoint URL
-                            </p>
-                            <div className="flex items-center gap-1">
-                              {isCodexNodeActive ? (
-                                <span className="text-xs text-green-500 font-mono flex items-center gap-1">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                  ACTIVE
-                                </span>
-                              ) : (
-                                <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
-                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
-                                  {isCodexLoading ? "CHECKING" : "OFFLINE"}
-                                </span>
-                              )}
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => checkCodexStatus(true)}
-                                className="h-6 w-6 p-0 rounded-full"
-                                title="Refresh node status"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                                  <path d="M21 3v5h-5"></path>
-                                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                                  <path d="M3 21v-5h5"></path>
-                                </svg>
-                              </Button>
+                          <label className="text-sm font-medium font-mono">ENDPOINT_TYPE</label>
+                          <Tabs 
+                            value={codexEndpointType} 
+                            onValueChange={(value) => handleEndpointTypeChange(value as 'remote' | 'local')}
+                            className="w-full"
+                          >
+                            <TabsList className="grid w-full grid-cols-2 font-mono">
+                              <TabsTrigger value="remote">REMOTE_NODE</TabsTrigger>
+                              <TabsTrigger value="local">LOCAL_NODE</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {codexEndpointType === 'remote' 
+                              ? "Use local Codex node for peak decentralization" 
+                              : "Use remote Codex node for ease of use"}
+                          </p>
+                          
+                          {codexEndpointType === 'remote' && (
+                            <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md">
+                              <p className="text-xs text-primary/90 font-mono flex items-center gap-1">
+                                <Info size={12} />
+                                Using managed Codex endpoint
+                              </p>
                             </div>
-                          </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
+                          {codexEndpointType === 'local' ? (
+                            <>
+                              <Input 
+                                id="codex-url"
+                                value={codexNodeUrl}
+                                onChange={handleCodexUrlChange}
+                                placeholder="http://localhost:8080/api/codex"
+                                className="font-mono text-sm bg-card/70"
+                              />
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  Local Codex node API endpoint URL
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  {isCodexNodeActive ? (
+                                    <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                      ACTIVE
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
+                                      {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                    </span>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => checkCodexStatus(true)}
+                                    className="h-6 w-6 p-0 rounded-full"
+                                    title="Refresh node status"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                      <path d="M21 3v5h-5"></path>
+                                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                      <path d="M3 21v-5h5"></path>
+                                    </svg>
+                                  </Button>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="p-3 bg-card/70 rounded-lg border border-border">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-mono text-muted-foreground">
+                                  Managed Codex node
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  {isCodexNodeActive ? (
+                                    <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                      ACTIVE
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
+                                      {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                    </span>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => checkCodexStatus(true)}
+                                    className="h-6 w-6 p-0 rounded-full"
+                                    title="Refresh node status"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                      <path d="M21 3v5h-5"></path>
+                                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                      <path d="M3 21v-5h5"></path>
+                                    </svg>
+                                  </Button>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground font-mono mt-2">
+                                Restrictions apply. Know more.
+                              </p>
+                            </div>
+                          )}
                           {codexError && (
                             <p className="text-xs text-amber-600/90 font-mono mt-1 flex items-center gap-1">
                               <AlertCircle size={12} />
@@ -1229,46 +1322,12 @@ export default function Home() {
             <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
           </div>
 
-          {/* Uploading Files Progress */}
-          {Object.keys(uploadingFiles).length > 0 && (
-            <div className="mb-8 space-y-4">
-              <h3 className="text-sm font-medium font-mono flex items-center gap-2">
-                <Upload size={14} className="text-primary" />
-                UPLOADING_FILES
-              </h3>
-              <div className="space-y-3">
-                {Object.entries(uploadingFiles).map(([fileId, file]) => (
-                  <div key={fileId} className="p-3 bg-card rounded-lg border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                          {getFileIcon(file.type)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-mono">{file.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{file.size.toFixed(2)} MB</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-mono text-primary">{file.progress}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className="bg-primary h-full transition-all duration-300 ease-in-out" 
-                        style={{ width: `${file.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Sent and Received Files Tabs */}
           <Tabs defaultValue="sent" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4 font-mono">
               <TabsTrigger value="sent" className="flex items-center gap-2">
                 <Upload size={16} />
-                SENT_FILES
+                SENT_FILES {Object.keys(uploadingFiles).length > 0 && `(${Object.keys(uploadingFiles).length} uploading)`}
               </TabsTrigger>
               <TabsTrigger value="received" className="flex items-center gap-2">
                 <Download size={16} />
@@ -1283,8 +1342,44 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="p-0 bg-card">
                   <div className="h-[250px] overflow-y-auto overflow-x-hidden p-4 relative">
-                    {sentFiles.length > 0 ? (
+                    {sentFiles.length > 0 || Object.keys(uploadingFiles).length > 0 ? (
                       <div className="space-y-3">
+                        {/* Show uploading files first */}
+                        {Object.entries(uploadingFiles).map(([fileId, file]) => (
+                          <div 
+                            key={fileId} 
+                            className={cn(
+                              "flex items-center justify-between p-3 bg-muted rounded-lg border border-primary/20",
+                              "hover:border-primary/30 hover:bg-accent/50 transition-colors w-full animate-pulse"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0">
+                                {getFileIcon(file.type)}
+                              </div>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm font-mono truncate">{file.name}</p>
+                                  <span className="text-xs text-primary/70 font-mono">
+                                    {file.progress}%
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground font-mono truncate">
+                                  {file.size.toFixed(2)} MB • Uploading...
+                                </p>
+                                {/* Progress bar */}
+                                <div className="w-full bg-muted-foreground/20 rounded-full h-1 mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-primary h-full transition-all duration-300 ease-in-out" 
+                                    style={{ width: `${file.progress}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Show sent files */}
                         {sentFiles.map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors w-full">
                             <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
@@ -1334,7 +1429,7 @@ export default function Home() {
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full">
                         <div className="p-3 rounded-full bg-muted/50">
-                          <Upload size={24} className="text-muted-foreground/60" />
+                          <Upload size={24} className="text-muted-foreground/60" aria-hidden="true" />
                         </div>
                         <p className="text-muted-foreground font-mono mt-3">No files sent yet</p>
                         <p className="text-xs text-muted-foreground/70 font-mono mt-1">
@@ -1412,7 +1507,7 @@ export default function Home() {
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full">
                         <div className="p-3 rounded-full bg-muted/50">
-                          <Download size={24} className="text-muted-foreground/60" />
+                          <Download size={24} className="text-muted-foreground/60" aria-hidden="true" />
                         </div>
                         <p className="text-muted-foreground font-mono mt-3">No files received yet</p>
                         <p className="text-xs text-muted-foreground/70 font-mono mt-1">
