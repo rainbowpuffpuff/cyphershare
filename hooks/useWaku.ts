@@ -50,8 +50,34 @@ export const useWaku = ({
   const [contentTopic, setContentTopic] = useState<string>(`${BASE_CONTENT_TOPIC}room-${roomId}/proto`);
   const [encoder, setEncoder] = useState<any>(null);
   const [decoder, setDecoder] = useState<any>(null);
-  const [subscription, setSubscription] = useState<any>(null);
+  const [subscription, setSubscription] = useState<{ unsubscribe: () => Promise<void> } | null>(null);
   const [peerCount, setPeerCount] = useState(0);
+
+  // Helper function to safely unsubscribe
+  const safeUnsubscribe = useCallback(async () => {
+    try {
+      if (subscription) {
+        await subscription.unsubscribe();
+        console.log('Successfully unsubscribed from Waku subscription');
+      }
+    } catch (error) {
+      console.warn('Error during unsubscribe:', error);
+    }
+    setSubscription(null);
+  }, [subscription]);
+
+  // Helper function to safely stop node
+  const safeStopNode = useCallback(async () => {
+    try {
+      if (node) {
+        await node.stop();
+        console.log('Successfully stopped Waku node');
+      }
+    } catch (error) {
+      console.warn('Error stopping node:', error);
+    }
+    setNode(null);
+  }, [node]);
 
   // Initialize Waku node
   const initWaku = useCallback(async () => {
@@ -65,11 +91,14 @@ export const useWaku = ({
     }
 
     try {
+      // Clean up any existing subscription and node first
+      await safeUnsubscribe();
+      await safeStopNode();
+
       setIsConnecting(true);
       setError(null);
 
       // Create a new content topic with the current room ID
-      // Using correct format: /{application-name}/{version}/{content-topic-name}/{encoding}
       const newContentTopic = `${BASE_CONTENT_TOPIC}room-${roomId}/proto`;
       setContentTopic(newContentTopic);
 
@@ -88,7 +117,6 @@ export const useWaku = ({
       console.log('Waku node started');
       await lightNode.dial("/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ");
       await lightNode.dial("/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk");
-
 
       // Wait for peer connections with timeout
       console.log('Waiting for peers...');
@@ -140,12 +168,8 @@ export const useWaku = ({
 
       return () => {
         clearInterval(interval);
-        if (subscription) {
-          subscription.unsubscribe();
-        }
-        if (lightNode) {
-          lightNode.stop();
-        }
+        safeUnsubscribe();
+        safeStopNode();
       };
     } catch (err) {
       console.error('Error initializing Waku:', err);
@@ -153,7 +177,7 @@ export const useWaku = ({
       setIsConnecting(false);
       setIsConnected(false);
     }
-  }, [roomId, wakuNodeUrl, wakuNodeType, isConnecting, isConnected]);
+  }, [roomId, wakuNodeUrl, wakuNodeType, isConnecting, isConnected, safeUnsubscribe, safeStopNode]);
 
   // Subscribe to messages
   const subscribeToMessages = async (lightNode: LightNode, messageDecoder: any, topic: string) => {
@@ -196,12 +220,30 @@ export const useWaku = ({
       };
 
       // Subscribe using the standard filter subscription
-      const subscription = await lightNode.filter.subscribe(
+      const result = await lightNode.filter.subscribe(
         [messageDecoder],
         messageHandler
-      );
+      ) as any; // Type assertion to avoid type issues
 
-      setSubscription(subscription);
+      // Basic error checking
+      if (result && result.error) {
+        throw new Error(`Subscription failed: ${String(result.error)}`);
+      }
+
+      // Create a wrapper for the unsubscribe function
+      const unsubscribeWrapper = async () => {
+        try {
+          if (result && typeof result.unsubscribe === 'function') {
+            await result.unsubscribe();
+            console.log('Successfully unsubscribed from Waku subscription');
+          }
+        } catch (error) {
+          console.warn('Error during unsubscribe:', error);
+        }
+      };
+
+      // Store the subscription object
+      setSubscription({ unsubscribe: unsubscribeWrapper });
       console.log('✅ Message subscription setup complete');
 
     } catch (err) {
@@ -314,29 +356,22 @@ export const useWaku = ({
   // Update room ID
   useEffect(() => {
     if (roomId && isConnected) {
-      // If room ID changes while connected, reconnect with new room ID
       const newContentTopic = `${BASE_CONTENT_TOPIC}room-${roomId}/proto`;
       if (newContentTopic !== contentTopic) {
-        // Clean up existing connection
-        if (subscription) {
-          subscription.unsubscribe();
-        }
-        if (node) {
-          node.stop();
-        }
+        // Clean up existing connection safely
+        safeUnsubscribe();
+        safeStopNode();
 
         // Reset state
         setIsConnected(false);
-        setNode(null);
         setEncoder(null);
         setDecoder(null);
-        setSubscription(null);
 
         // Initialize with new room ID
         initWaku();
       }
     }
-  }, [roomId, isConnected, contentTopic, initWaku]);
+  }, [roomId, isConnected, contentTopic, initWaku, safeUnsubscribe, safeStopNode]);
 
   // Initialize Waku when component mounts or when wakuNodeType changes
   useEffect(() => {
@@ -344,66 +379,41 @@ export const useWaku = ({
       initWaku();
     } else {
       // Clean up existing connection if switching from light to relay
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-      if (node) {
-        node.stop();
-      }
+      safeUnsubscribe();
+      safeStopNode();
 
       // Reset state
       setIsConnected(false);
-      setNode(null);
       setEncoder(null);
       setDecoder(null);
-      setSubscription(null);
     }
 
     // Cleanup function
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-      if (node) {
-        node.stop();
-      }
+      safeUnsubscribe();
+      safeStopNode();
     };
-  }, [wakuNodeType, initWaku]);
+  }, [wakuNodeType, initWaku, safeUnsubscribe, safeStopNode]);
 
   // Function to manually reconnect
   const reconnect = useCallback(async () => {
     console.log('Manual reconnection requested');
 
-    // Clean up existing connection
-    if (subscription) {
-      try {
-        subscription.unsubscribe();
-      } catch (e) {
-        console.warn('Error unsubscribing:', e);
-      }
-    }
-
-    if (node) {
-      try {
-        await node.stop();
-      } catch (e) {
-        console.warn('Error stopping node:', e);
-      }
-    }
+    // Clean up existing connection safely
+    await safeUnsubscribe();
+    await safeStopNode();
 
     // Reset state
     setIsConnected(false);
-    setNode(null);
     setEncoder(null);
     setDecoder(null);
-    setSubscription(null);
     setError(null);
 
     // Small delay before reconnecting
     setTimeout(() => {
       initWaku();
     }, 1000);
-  }, [node, subscription, initWaku]);
+  }, [safeUnsubscribe, safeStopNode, initWaku]);
 
   return {
     isConnecting,
