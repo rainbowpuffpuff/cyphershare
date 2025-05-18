@@ -38,6 +38,10 @@ export interface FileMetadata {
   [key: string]: unknown;
 }
 
+export type CodexEndpointType = 'remote' | 'local';
+
+type CodexHeaders = Record<string, string>;
+
 //-----------------------------------------------------------------------------
 // CODEX CLIENT IMPLEMENTATION
 //-----------------------------------------------------------------------------
@@ -50,67 +54,208 @@ export class CodexClient {
   private isActive: boolean = false;
   private lastChecked: number = 0;
   private checkInterval: number = 30000; // Check every 30 seconds
+  private endpointType: CodexEndpointType;
+  private authHeaders?: CodexHeaders;
 
-  constructor(baseUrl: string = "http://localhost:8080/api/codex") {
+  constructor(baseUrl: string = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || '', endpointType: CodexEndpointType = 'remote') {
+    // Validate and format the base URL
+    if (!baseUrl) {
+      console.error('No base URL provided and NEXT_PUBLIC_CODEX_REMOTE_API_URL environment variable is not set');
+      baseUrl = ''; // Set empty string to allow initialization, but client won't work
+    } else if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://') && !baseUrl.startsWith('/')) {
+      // If URL doesn't start with http(s):// or /, prepend https://
+      baseUrl = `https://${baseUrl}`;
+      console.warn('Base URL modified to include https://, new URL:', baseUrl);
+    }
+
     this.baseUrl = baseUrl;
+    this.endpointType = endpointType;
+    
+    // Log configuration on initialization
+    console.log('=== CODEX CLIENT CONFIGURATION ===');
+    console.log('Endpoint Type:', endpointType);
+    console.log('Base URL:', baseUrl);
+    console.log('Environment Variables:', {
+      NEXT_PUBLIC_CODEX_REMOTE_API_URL: process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || 'not set',
+      NEXT_PUBLIC_CODEX_LOCAL_API_URL: process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || 'not set',
+      NEXT_PUBLIC_CODEX_REMOTE_API_USERNAME: process.env.NEXT_PUBLIC_CODEX_REMOTE_API_USERNAME ? '✓ set' : '✗ not set',
+      NEXT_PUBLIC_CODEX_REMOTE_API_PASSWORD: process.env.NEXT_PUBLIC_CODEX_REMOTE_API_PASSWORD ? '✓ set' : '✗ not set'
+    });
+    console.log('================================');
+    
+    this.updateAuthHeaders();
   }
 
   /**
-   * Update the base URL for the Codex API
-   * @param newUrl - The new base URL for the Codex API
+   * Update the base URL and endpoint type for the Codex API
    */
-  public updateBaseUrl(newUrl: string): void {
+  public updateConfig(newUrl: string, endpointType: CodexEndpointType): void {
+    console.log('=== UPDATING CODEX CONFIGURATION ===');
+    console.log('Previous Config:', {
+      baseUrl: this.baseUrl,
+      endpointType: this.endpointType
+    });
+    console.log('New Config:', {
+      baseUrl: newUrl,
+      endpointType: endpointType
+    });
+    
     this.baseUrl = newUrl;
-    // Reset active status and force a new check
+    this.endpointType = endpointType;
+    this.updateAuthHeaders();
     this.isActive = false;
     this.lastChecked = 0;
+    
+    console.log('Configuration updated successfully');
+    console.log('=================================');
+  }
+
+  /**
+   * Update authentication headers based on endpoint type
+   */
+  private updateAuthHeaders(): void {
+    if (this.endpointType === 'remote') {
+      const username = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_USERNAME;
+      const password = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_PASSWORD;
+      
+      console.log('=== UPDATING AUTH HEADERS ===');
+      console.log('Endpoint Type:', this.endpointType);
+      console.log('Credentials Present:', {
+        username: !!username,
+        password: !!password
+      });
+      
+      if (username && password) {
+        const base64Credentials = typeof window !== 'undefined' 
+          ? btoa(`${username}:${password}`)
+          : Buffer.from(`${username}:${password}`).toString('base64');
+        
+        this.authHeaders = {
+          'Authorization': `Basic ${base64Credentials}`,
+          'Accept': '*/*',
+          'Content-Type': 'application/json'
+        };
+
+        console.log('Auth headers set successfully');
+        console.log('Headers:', {
+          ...this.authHeaders,
+          'Authorization': 'Basic ****'
+        });
+      } else {
+        console.warn('⚠️ Remote endpoint selected but credentials not found');
+        this.authHeaders = undefined;
+      }
+      console.log('===========================');
+    } else {
+      console.log('Local endpoint selected, no auth headers needed');
+      this.authHeaders = undefined;
+    }
   }
 
   /**
    * Get the current base URL
-   * @returns The current base URL
    */
   public getBaseUrl(): string {
     return this.baseUrl;
   }
 
   /**
+   * Get the current endpoint type
+   */
+  public getEndpointType(): CodexEndpointType {
+    return this.endpointType;
+  }
+
+  /**
    * Check if the Codex node is active
-   * @param forceCheck - Force a check even if the cache is still valid
-   * @returns Promise resolving to a boolean indicating if the node is active
    */
   public async isNodeActive(forceCheck: boolean = false): Promise<boolean> {
     const now = Date.now();
     
-    // Return cached result if it's recent enough and not forcing a check
     if (!forceCheck && now - this.lastChecked < this.checkInterval) {
       return this.isActive;
     }
     
     try {
-      // Create an AbortController with timeout for browsers that don't support AbortSignal.timeout
+      const debugUrl = `${this.baseUrl}/v1/debug/info`;
+      
+      console.log('=== CHECKING NODE STATUS ===');
+      console.log('Request Details:', {
+        url: debugUrl,
+        endpointType: this.endpointType,
+        headers: this.authHeaders ? {
+          ...this.authHeaders,
+          'Authorization': 'Basic ****'
+        } : 'No headers'
+      });
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(`${this.baseUrl}/v1/debug/info`, {
+
+      const requestOptions: RequestInit = {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          'Accept': '*/*',
+          ...(this.authHeaders || {})
         },
         signal: controller.signal,
+        credentials: this.endpointType === 'remote' ? 'include' : 'same-origin'
+      };
+
+      console.log('Making request with options:', {
+        method: requestOptions.method,
+        credentials: requestOptions.credentials,
+        headers: requestOptions.headers ? {
+          ...requestOptions.headers,
+          'Authorization': 'Basic ****'
+        } : 'No headers'
       });
+
+      const response = await fetch(debugUrl, requestOptions);
       
       clearTimeout(timeoutId);
-      
-      this.isActive = response.ok;
-      this.lastChecked = now;
-      return this.isActive;
-    } catch (error) {
-      // Handle network errors (like ECONNREFUSED when node is not running)
-      // Don't log to console in production as this is an expected case
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Codex node is not reachable:', error instanceof Error ? error.message : String(error));
+
+      console.log('Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      
+      console.log('Node check successful:', {
+        version: data.version,
+        status: data.status,
+        uptime: data.uptime
+      });
+      console.log('==========================');
+      
+      if (!data || typeof data !== 'object') {
+        console.error('Invalid response format:', data);
+        this.isActive = false;
+        return false;
+      }
+
+      this.isActive = true;
+      this.lastChecked = now;
+      return true;
+
+    } catch (error) {
+      console.error('❌ Node check failed:', {
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        } : String(error),
+        url: this.baseUrl,
+        endpointType: this.endpointType
+      });
+      
       this.isActive = false;
       this.lastChecked = now;
       return false;
@@ -131,8 +276,10 @@ export class CodexClient {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          ...(this.authHeaders || {})
         },
         signal: controller.signal,
+        credentials: this.endpointType === 'remote' ? 'include' : 'same-origin'
       });
       
       clearTimeout(timeoutId);
@@ -154,10 +301,6 @@ export class CodexClient {
 
   /**
    * Generic method to make API requests to the Codex node
-   * @param endpoint - API endpoint (without the base URL)
-   * @param method - HTTP method
-   * @param body - Request body for POST/PUT requests
-   * @returns Promise resolving to the API response
    */
   public async makeRequest<T>(
     endpoint: string, 
@@ -167,19 +310,25 @@ export class CodexClient {
     try {
       const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
       
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Making ${method} request to:`, url);
+        console.log('Using headers:', this.authHeaders);
+      }
+
       const options: RequestInit = {
         method,
         headers: {
+          ...(this.authHeaders || {}),
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
+        credentials: this.endpointType === 'remote' ? 'include' : 'same-origin'
       };
       
       if (body && (method === 'POST' || method === 'PUT')) {
         options.body = JSON.stringify(body);
       }
       
-      // Add timeout to avoid hanging requests
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       options.signal = controller.signal;
@@ -188,7 +337,11 @@ export class CodexClient {
         const response = await fetch(url, options);
         clearTimeout(timeoutId);
         
-        // Try to parse JSON, but handle case where response might not be valid JSON
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Response status:', response.status);
+          console.log('Response headers:', response.headers);
+        }
+
         let data;
         try {
           data = await response.json();
@@ -206,7 +359,6 @@ export class CodexClient {
         throw fetchError;
       }
     } catch (error) {
-      // Handle network errors more gracefully
       if (error instanceof DOMException && error.name === 'AbortError') {
         return {
           success: false,
@@ -214,7 +366,6 @@ export class CodexClient {
         };
       }
       
-      // For network errors (like when node is not running)
       if (error instanceof TypeError && error.message.includes('fetch')) {
         return {
           success: false,
@@ -222,9 +373,8 @@ export class CodexClient {
         };
       }
       
-      // For other errors
       if (process.env.NODE_ENV !== 'production') {
-        console.error(`Error making ${method} request to ${endpoint}:`, error);
+        console.error(`Error making ${method} request:`, error);
       }
       
       return {
@@ -247,23 +397,53 @@ export class CodexClient {
     try {
       const url = `${this.baseUrl}/v1/data`;
       
+      console.log('=== STARTING FILE UPLOAD ===');
+      console.log('Upload Details:', {
+        url: url,
+        endpointType: this.endpointType,
+        fileName: file.name,
+        fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        fileType: file.type
+      });
+      
       return new Promise((resolve) => {
         const xhr = new XMLHttpRequest();
         
-        // Set up progress tracking
         if (onProgress) {
           xhr.upload.addEventListener('progress', (event) => {
             if (event.lengthComputable) {
               const percentComplete = Math.round((event.loaded / event.total) * 100);
               onProgress(percentComplete);
+              console.log(`Upload progress: ${percentComplete}%`);
             }
           });
         }
         
         xhr.open('POST', url, true);
-        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
         xhr.setRequestHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+        xhr.setRequestHeader('Accept', '*/*');
         
+        // Add authentication headers for remote endpoint
+        if (this.endpointType === 'remote' && this.authHeaders) {
+          console.log('Adding auth headers for remote endpoint');
+          Object.entries(this.authHeaders).forEach(([key, value]) => {
+            if (key !== 'Content-Type') { // Don't override Content-Type for file upload
+              xhr.setRequestHeader(key, value);
+            }
+          });
+        }
+        
+        xhr.withCredentials = this.endpointType === 'remote';
+        
+        console.log('Request headers set:', {
+          'Content-Type': file.type || 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${file.name}"`,
+          'Accept': '*/*',
+          'Authorization': this.authHeaders ? 'Basic ****' : 'none',
+          'withCredentials': xhr.withCredentials
+        });
+
         xhr.onload = function() {
           // Log the raw response text first, before any parsing
           console.log('=== RAW CODEX UPLOAD RESPONSE ===');
@@ -397,6 +577,7 @@ export class CodexClient {
         headers: {
           'Content-Type': 'text/plain',
           'Content-Disposition': `attachment; filename="${fileName}"`,
+          ...(this.authHeaders || {})
         },
         body: blob
       });
@@ -462,7 +643,11 @@ export class CodexClient {
       const metadataUrl = `${this.baseUrl}/v1/data/${fileId}/network`;
       console.log(`Fetching metadata from: ${metadataUrl}`);
       
-      const metadataResponse = await axios.post(metadataUrl);
+      const metadataResponse = await axios.post(metadataUrl, {}, {
+        headers: {
+          ...(this.authHeaders || {})
+        }
+      });
       return { success: true, metadata: metadataResponse.data };
     } catch (error) {
       console.error('Error fetching file metadata:', error);
@@ -514,7 +699,10 @@ export class CodexClient {
       console.log(`Downloading file from: ${downloadUrl}`);
       
       const fileResponse = await axios.get(downloadUrl, {
-        responseType: 'blob'
+        responseType: 'blob',
+        headers: {
+          ...(this.authHeaders || {})
+        }
       });
       
       return {
@@ -545,19 +733,16 @@ export class CodexClient {
 // SINGLETON MANAGEMENT
 //-----------------------------------------------------------------------------
 
-// Create a singleton instance for use throughout the app
 let codexClientInstance: CodexClient | null = null;
 
 /**
  * Get the CodexClient instance (creates one if it doesn't exist)
- * @param baseUrl - Optional base URL to initialize or update the client
- * @returns The CodexClient instance
  */
-export function getCodexClient(baseUrl?: string): CodexClient {
+export function getCodexClient(baseUrl?: string, endpointType?: CodexEndpointType): CodexClient {
   if (!codexClientInstance) {
-    codexClientInstance = new CodexClient(baseUrl);
-  } else if (baseUrl) {
-    codexClientInstance.updateBaseUrl(baseUrl);
+    codexClientInstance = new CodexClient(baseUrl, endpointType);
+  } else if (baseUrl && endpointType) {
+    codexClientInstance.updateConfig(baseUrl, endpointType);
   }
   
   return codexClientInstance;
@@ -576,14 +761,13 @@ export function resetCodexClient(): void {
 
 /**
  * React hook for using the Codex client in components
- * @param initialUrl - Initial URL for the Codex API
- * @returns Object with Codex client, node status, and update functions
  */
 export function useCodex(initialUrl?: string) {
   const [client] = useState<CodexClient>(() => getCodexClient(initialUrl));
   const [isNodeActive, setIsNodeActive] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [endpointType, setEndpointType] = useState<CodexEndpointType>('remote');
 
   // Check node status
   const checkNodeStatus = useCallback(async (forceCheck: boolean = false) => {
@@ -593,10 +777,8 @@ export function useCodex(initialUrl?: string) {
     try {
       const isActive = await client.isNodeActive(forceCheck);
       setIsNodeActive(isActive);
-      // Clear any previous errors if the check was successful
       setError(null);
     } catch (err) {
-      // This should rarely happen since isNodeActive handles errors internally
       setError(err instanceof Error ? err.message : 'Failed to check node status');
       setIsNodeActive(false);
     } finally {
@@ -604,12 +786,16 @@ export function useCodex(initialUrl?: string) {
     }
   }, [client]);
 
-  // Update the base URL
-  const updateBaseUrl = useCallback((newUrl: string) => {
+  // Update the configuration
+  const updateConfig = useCallback((newUrl: string, newEndpointType: CodexEndpointType) => {
     try {
-      // Basic URL validation
-      new URL(newUrl); // Will throw if URL is invalid
-      client.updateBaseUrl(newUrl);
+      // Allow proxy paths (starting with /) or full URLs
+      if (!newUrl.startsWith('/') && !newUrl.startsWith('http')) {
+        throw new Error('URL must start with "/" or "http:// or https://"');
+      }
+      
+      client.updateConfig(newUrl, newEndpointType);
+      setEndpointType(newEndpointType);
       checkNodeStatus(true);
     } catch (err) {
       setError(`Invalid URL: ${err instanceof Error ? err.message : String(err)}`);
@@ -620,7 +806,6 @@ export function useCodex(initialUrl?: string) {
   useEffect(() => {
     checkNodeStatus();
     
-    // Set up periodic checks
     const intervalId = setInterval(() => {
       checkNodeStatus();
     }, 60000); // Check every minute
@@ -633,8 +818,9 @@ export function useCodex(initialUrl?: string) {
     isNodeActive,
     isLoading,
     error,
+    endpointType,
     checkNodeStatus,
-    updateBaseUrl,
+    updateConfig,
     baseUrl: client.getBaseUrl(),
     getNodeInfo: client.getNodeInfo.bind(client),
     getCodexClient: () => getCodexClient(),
