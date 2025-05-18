@@ -80,7 +80,7 @@ export const useWaku = ({
       // Create a light node with explicit protocols
       console.log('Creating Waku light node...');
       const lightNode = await createLightNode({
-        defaultBootstrap: false,
+        defaultBootstrap: true,
         networkConfig: {
           clusterId: 42,
           shards: [0]
@@ -90,8 +90,7 @@ export const useWaku = ({
       // Start the node
       await lightNode.start();
       console.log('Waku node started');
-      await lightNode.dial("/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ");
-      await lightNode.dial("/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk");
+
 
 
       // Wait for peer connections with timeout
