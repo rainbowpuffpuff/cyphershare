@@ -58,6 +58,16 @@ export class CodexClient {
   private authHeaders?: CodexHeaders;
 
   constructor(baseUrl: string = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || '', endpointType: CodexEndpointType = 'remote') {
+    // Validate and format the base URL
+    if (!baseUrl) {
+      console.error('No base URL provided and NEXT_PUBLIC_CODEX_REMOTE_API_URL environment variable is not set');
+      baseUrl = ''; // Set empty string to allow initialization, but client won't work
+    } else if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://') && !baseUrl.startsWith('/')) {
+      // If URL doesn't start with http(s):// or /, prepend https://
+      baseUrl = `https://${baseUrl}`;
+      console.warn('Base URL modified to include https://, new URL:', baseUrl);
+    }
+
     this.baseUrl = baseUrl;
     this.endpointType = endpointType;
     
