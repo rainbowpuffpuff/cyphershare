@@ -764,25 +764,6 @@ export default function Home() {
                     {copiedRoom ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                   </Button>
                 </div>
-                {/* Waku connection indicator */}
-                {wakuNodeType === 'light' && (
-                  <div 
-                    className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-                      isWakuConnected 
-                        ? 'bg-green-500 animate-pulse' 
-                        : isWakuConnecting 
-                          ? 'bg-amber-500 animate-pulse' 
-                          : 'bg-red-500'
-                    }`}
-                    title={
-                      isWakuConnected 
-                        ? `Connected to Waku network (${wakuPeerCount} peers)` 
-                        : isWakuConnecting 
-                          ? 'Connecting to Waku network...' 
-                          : 'Not connected to Waku network'
-                    }
-                  ></div>
-                )}
                 {/* Scanline effect */}
                 <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </div>
@@ -808,7 +789,24 @@ export default function Home() {
                     aria-label="Open settings"
                   >
                     <Settings size={20} className="text-primary" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                    {wakuNodeType === 'light' && (
+                      <div 
+                        className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                          isWakuConnected 
+                            ? 'bg-green-500 animate-pulse' 
+                            : isWakuConnecting 
+                              ? 'bg-amber-500 animate-pulse' 
+                              : 'bg-red-500'
+                        }`}
+                        title={
+                          isWakuConnected 
+                            ? `Connected to Waku network (${wakuPeerCount} peers)` 
+                            : isWakuConnecting 
+                              ? 'Connecting to Waku network...' 
+                              : 'Not connected to Waku network'
+                        }
+                      ></div>
+                    )}
                   </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="p-5 flex flex-col">
