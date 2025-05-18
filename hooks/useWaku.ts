@@ -23,6 +23,13 @@ const FileMessage = new protobuf.Type("FileMessage")
 // Format: /{application-name}/{version}/{content-topic-name}/{encoding}
 const BASE_CONTENT_TOPIC = "/fileshare/1/";
 
+// List of bootstrap nodes for better connectivity
+const BOOTSTRAP_NODES = [
+  "/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ",
+  "/dns4/node-01.do-ams3.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmNaeL4p3WEYzC9mgXBmBWSgWjPHRvatZTXnp8Jgv3iKsb",
+  "/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk"
+];
+
 export interface WakuFileMessage {
   timestamp: number;
   sender: string;
@@ -72,42 +79,59 @@ export const useWaku = ({
       setIsConnecting(true);
       setError(null);
 
-      // Create a new content topic with the current room ID
-      // Using correct format: /{application-name}/{version}/{content-topic-name}/{encoding}
       const newContentTopic = `${BASE_CONTENT_TOPIC}room-${roomId}/proto`;
       setContentTopic(newContentTopic);
 
-      // Create a light node with explicit protocols
       console.log('Creating Waku light node...');
       const lightNode = await createLightNode({
-        defaultBootstrap: true,
+        defaultBootstrap: false,
         networkConfig: {
           clusterId: 42,
           shards: [0]
         },
       });
 
-      // Start the node
       await lightNode.start();
       console.log('Waku node started');
 
+      // Connect to bootstrap nodes with better error handling
+      const bootstrapNodes = [
+        "/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ",
+        "/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk"
+      ];
 
+      let connectedToAnyNode = false;
+      for (const node of bootstrapNodes) {
+        try {
+          console.log(`Attempting to connect to ${node}...`);
+          await lightNode.dial(node);
+          connectedToAnyNode = true;
+          console.log(`Successfully connected to ${node}`);
+        } catch (error) {
+          console.warn(`Failed to connect to ${node}:`, error);
+          // Continue trying other nodes
+        }
+      }
 
-      // Wait for peer connections with timeout
+      if (!connectedToAnyNode) {
+        throw new Error('Failed to connect to any bootstrap nodes');
+      }
+
+      // Wait for peer connections with better error handling
       console.log('Waiting for peers...');
       try {
-        // Wait for both protocols with a timeout
-        const timeout = 15000; // 15 seconds timeout
         await Promise.race([
           lightNode.waitForPeers([Protocols.LightPush, Protocols.Filter]),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Peer connection timeout')), timeout)
+            setTimeout(() => reject(new Error('Peer connection timeout - please try again')), 15000)
           )
         ]);
         console.log('Connected to peers successfully');
-      } catch (peerError) {
-        console.warn('Peer connection issue:', peerError);
-        // Continue anyway, as we might connect to peers later
+      } catch (peerError: unknown) {
+        if (peerError instanceof Error && peerError.message.includes('timeout')) {
+          throw new Error('Connection timed out. Please check your network connection and try again.');
+        }
+        throw new Error('Failed to establish peer connections. Please try again.');
       }
 
       // Create encoder and decoder
@@ -124,15 +148,31 @@ export const useWaku = ({
       setIsConnected(true);
       setIsConnecting(false);
 
-      // Update peer count periodically
+      // Update peer count and handle disconnections
       const interval = setInterval(async () => {
         if (lightNode) {
-          const peers = await lightNode.libp2p.getPeers();
-          setPeerCount(peers.length);
+          try {
+            const peers = await lightNode.libp2p.getPeers();
+            setPeerCount(peers.length);
 
-          // Log connected peers for debugging
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`Connected to ${peers.length} Waku peers`);
+            // If no peers, try to reconnect
+            if (peers.length === 0) {
+              console.log('No peers connected, attempting to reconnect...');
+              for (const node of bootstrapNodes) {
+                try {
+                  await lightNode.dial(node);
+                  const newPeers = await lightNode.libp2p.getPeers();
+                  if (newPeers.length > 0) {
+                    console.log('Successfully reconnected to peers');
+                    break;
+                  }
+                } catch (error) {
+                  console.warn(`Reconnection attempt to ${node} failed:`, error);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error checking peer count:', error);
           }
         }
       }, 5000);
@@ -152,7 +192,18 @@ export const useWaku = ({
       };
     } catch (err) {
       console.error('Error initializing Waku:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error initializing Waku');
+      // Provide more user-friendly error messages
+      let errorMessage = 'Failed to initialize Waku';
+      if (err instanceof Error) {
+        if (err.message.includes('timeout')) {
+          errorMessage = 'Connection timed out. Please check your network connection and try again.';
+        } else if (err.message.includes('bootstrap')) {
+          errorMessage = 'Could not connect to the network. Please try again in a few moments.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      setError(errorMessage);
       setIsConnecting(false);
       setIsConnected(false);
     }
