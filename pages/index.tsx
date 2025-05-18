@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, Terminal, AlertCircle, Info, Waypoints } from "lucide-react";
+import { Upload, Download, FileIcon, Copy, Edit, Check, File, FileText, Image, Github, Settings, Server, Radio, AlertCircle, Info, Waypoints } from "lucide-react";
 import Head from "next/head";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -17,7 +17,7 @@ import {
   SheetClose,
   SheetTrigger
 } from "@/components/ui/sheet";
-import { useCodex, CodexClient, getCodexClient } from "@/hooks/useCodex";
+import { useCodex } from "@/hooks/useCodex";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
 import axios from "axios";
 import { cn } from "@/lib/utils";
@@ -562,7 +562,7 @@ export default function Home() {
         }
         
         // Get data from successful download
-        const { data: blob, metadata: { filename, mimetype } } = result;
+        const { data: blob, metadata: { filename } } = result;
         
         setCopySuccess(`Downloading ${filename}...`);
         
@@ -852,15 +852,15 @@ export default function Home() {
                           </Tabs>
                           <p className="text-xs text-muted-foreground font-mono">
                             {codexEndpointType === 'remote' 
-                              ? "Use managed remote Codex node (recommended)" 
-                              : "Use local Codex node (advanced)"}
+                              ? "Use local Codex node for peak decentralization" 
+                              : "Use remote Codex node for ease of use"}
                           </p>
                           
                           {codexEndpointType === 'remote' && (
                             <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md">
                               <p className="text-xs text-primary/90 font-mono flex items-center gap-1">
                                 <Info size={12} />
-                                Using managed Codex node with authentication
+                                Using managed Codex endpoint
                               </p>
                             </div>
                           )}
@@ -914,7 +914,7 @@ export default function Home() {
                             <div className="p-3 bg-card/70 rounded-lg border border-border">
                               <div className="flex items-center justify-between">
                                 <p className="text-sm font-mono text-muted-foreground">
-                                  {process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL}
+                                  Managed Codex node
                                 </p>
                                 <div className="flex items-center gap-1">
                                   {isCodexNodeActive ? (
@@ -945,7 +945,7 @@ export default function Home() {
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground font-mono mt-2">
-                                Using managed remote Codex node
+                                Restrictions apply. Know more.
                               </p>
                             </div>
                           )}
@@ -1429,7 +1429,7 @@ export default function Home() {
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full">
                         <div className="p-3 rounded-full bg-muted/50">
-                          <Upload size={24} className="text-muted-foreground/60" />
+                          <Upload size={24} className="text-muted-foreground/60" aria-hidden="true" />
                         </div>
                         <p className="text-muted-foreground font-mono mt-3">No files sent yet</p>
                         <p className="text-xs text-muted-foreground/70 font-mono mt-1">
@@ -1507,7 +1507,7 @@ export default function Home() {
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full">
                         <div className="p-3 rounded-full bg-muted/50">
-                          <Download size={24} className="text-muted-foreground/60" />
+                          <Download size={24} className="text-muted-foreground/60" aria-hidden="true" />
                         </div>
                         <p className="text-muted-foreground font-mono mt-3">No files received yet</p>
                         <p className="text-xs text-muted-foreground/70 font-mono mt-1">
