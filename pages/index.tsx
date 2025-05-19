@@ -1080,17 +1080,12 @@ export default function Home() {
                               <TabsTrigger value="local">LOCAL_NODE</TabsTrigger>
                             </TabsList>
                           </Tabs>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {codexEndpointType === 'remote' 
-                              ? "Use local Codex node for peak decentralization" 
-                              : "Use remote Codex node for ease of use"}
-                          </p>
                           
                           {codexEndpointType === 'remote' && (
                             <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md">
                               <p className="text-xs text-primary/90 font-mono flex items-center gap-1">
                                 <Info size={12} />
-                                Using managed Codex endpoint
+                                Use local Codex node for peak decentralization
                               </p>
                             </div>
                           )}
@@ -1144,7 +1139,7 @@ export default function Home() {
                             <div className="p-3 bg-card/70 rounded-lg border border-border">
                               <div className="flex items-center justify-between">
                                 <p className="text-sm font-mono text-muted-foreground">
-                                  Managed Codex node
+                                  Managed Codex endpoint
                                 </p>
                                 <div className="flex items-center gap-1">
                                   {isCodexNodeActive ? (
@@ -1175,7 +1170,7 @@ export default function Home() {
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground font-mono mt-2">
-                                Restrictions apply. Know more.
+                                Restrictions apply. <a href="https://github.com/hackyguru/cyphershare/docs/restrictions.md" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Know more</a>
                               </p>
                             </div>
                           )}
