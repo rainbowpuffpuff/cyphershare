@@ -23,12 +23,6 @@ const FileMessage = new protobuf.Type("FileMessage")
 // Format: /{application-name}/{version}/{content-topic-name}/{encoding}
 const BASE_CONTENT_TOPIC = "/fileshare/1/";
 
-// List of bootstrap nodes for better connectivity
-const BOOTSTRAP_NODES = [
-  "/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ",
-  "/dns4/node-01.do-ams3.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmNaeL4p3WEYzC9mgXBmBWSgWjPHRvatZTXnp8Jgv3iKsb",
-  "/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk"
-];
 
 export interface WakuFileMessage {
   timestamp: number;
@@ -97,7 +91,9 @@ export const useWaku = ({
       // Connect to bootstrap nodes with better error handling
       const bootstrapNodes = [
         "/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ",
-        "/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk"
+        "/dns4/vps-aaa00d52.vps.ovh.ca/tcp/8000/wss/p2p/16Uiu2HAm9PftGgHZwWE3wzdMde4m3kT2eYJFXLZfGoSED3gysofk",
+        "/dns4/waku-42-1.bloxy.one/tcp/8000/wss/p2p/16Uiu2HAmV8y1exLbqWVQjytwsuTKXK4n3QvLUa4zAWF71nshejYo",
+        "/dns4/waku-42-2.bloxy.one/tcp/8000/wss/p2p/16Uiu2HAmJRs6ypS3XEhkpV2sJb8SHtsgpBsTPzuA4X9zq5ExkEZj"
       ];
 
       let connectedToAnyNode = false;
@@ -140,7 +136,7 @@ export const useWaku = ({
         ephemeral: true,
       });
 
-      const newDecoder = lightNode.createDecoder({contentTopic: newContentTopic});
+      const newDecoder = lightNode.createDecoder({ contentTopic: newContentTopic });
 
       setNode(lightNode);
       setEncoder(newEncoder);
