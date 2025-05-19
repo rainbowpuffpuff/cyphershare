@@ -911,14 +911,16 @@ export default function Home() {
       <div className={`flex min-h-screen flex-col ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <Head>
         <title>Codex File Transfer</title>
-        <meta name="description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta property="og:title" content="Codex File Transfer" />
-        <meta property="og:description" content="Simple filesharing application that uses Codex and Waku" />
+        <meta name="description" content="Simple filesharing application that uses Codex, Waku and TACo" />
+        <meta property="og:title" content="CypherShare" />
+        <meta property="og:description" content="Simple filesharing application that uses Codex, Waku and TACo" />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://opengraph.b-cdn.net/production/images/62d96fb5-2821-4691-a7f8-41b240b48284.png?token=fhDGsFiV6qME7vI2E96jcePGsGdoScCjHIGxDzzJ8aE&height=630&width=1200&expires=33283614304" />
+        <meta name="twitter:image" content="https://opengraph.b-cdn.net/production/images/62d96fb5-2821-4691-a7f8-41b240b48284.png?token=fhDGsFiV6qME7vI2E96jcePGsGdoScCjHIGxDzzJ8aE&height=630&width=1200&expires=33283614304" />
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="Codex File Transfer" />
-        <meta name="twitter:description" content="Simple filesharing application that uses Codex and Waku" />
-        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized" />
+        <meta name="twitter:title" content="CypherShare" />
+        <meta name="twitter:description" content="Simple filesharing application that uses Codex, Waku and TACo" />
+        <meta name="keywords" content="Codex, Waku, file sharing, p2p, decentralized, cypherpunk, TACo" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
