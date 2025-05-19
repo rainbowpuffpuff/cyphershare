@@ -88,15 +88,11 @@ export default function useTaco({ ritualId, domain, provider }: UseTacoParams) {
       if (!isInit || !provider) return;
       if (networkError) throw new Error(networkError);
 
-      // Ensure we always provide a string to `encrypt`
-      const payload =
-        typeof data === "string" ? data : new TextDecoder().decode(data);
-
       try {
         const messageKit = await encrypt(
           provider,
           domain,
-          payload,
+          data,
           condition,
           ritualId,
           encryptorSigner
