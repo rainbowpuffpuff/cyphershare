@@ -46,12 +46,12 @@ The application uses **[TACo](https://github.com/nucypher/taco-web)** for client
 
 Key points:
 - Files/plaintexts are encrypted in the browser _before_ they are uploaded to Codex or transmitted via Waku – i.e. only ciphertexts ever leave the client.
-- Decryption happens on-demand when the data consumer or recipient pings the TAConetwork. Decryption material is only provisioned when the data consumer (in this example, represented by a connected wallet) satisfies the pre-specified TACo **Conditions**.
+- Decryption happens on-demand when the data consumer/recipient pings a cohort of TACo nodes. Decryption material is only provisioned when the data consumer (in this example, authenticated via the signature of a connected wallet) satisfies the pre-specified TACo **Conditions**.
 - Helper utilities are provided for two starter TACo conditions types: 
-  - **Positive balance** of POL (Polygon Amoy)
-  - **Time-limited** access (N seconds from upload) 
+  - **Positive balance** of POL (Polygon Amoy).
+  - **Time-limited** access (N seconds from upload).
 - You can define any arbitrary on-chain condition by instantiating a TACo `Condition` in your code – see TACo [docs](https://docs.taco.build/conditions) for more condition logic and types. 
-- Wallet connectivity (handled transparently by `WalletProvider` and the **Connect Wallet** button) is only required to sign TACo encryption/decryption requests.
+- Wallet connectivity (handled transparently by `WalletProvider` and the **Connect Wallet** button) is only required to sign TACo encryption/decryption requests and authenticate the data producer and consumer respectively. 
 - You can define various authentication methods and [combine](https://docs.taco.build/authentication/conditioncontext-and-context-variables) them with conditions, including Sign In With Ethereum and even off-chain identities. 
 
 ## Getting Started
