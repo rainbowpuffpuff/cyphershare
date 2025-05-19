@@ -62,6 +62,8 @@ interface FileItem {
   fileId?: string; // Codex file ID
   isEncrypted?: boolean; // Whether the file is encrypted with TACo
   accessCondition?: string; // Description of access condition
+  isUploading?: boolean; // Whether the file is currently being uploaded
+  progress?: number; // Upload progress percentage
 }
 
 // Update ExtendedNodeInfo interface
@@ -851,7 +853,7 @@ export default function Home() {
     const urlToUse = codexEndpointType === 'remote'
       ? process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || ""
       : codexNodeUrl;
-      
+    
     updateCodexConfig(urlToUse, codexEndpointType);
     
     setSaveSuccess(true);
@@ -942,9 +944,9 @@ export default function Home() {
       )}
 
       <main className="flex-1 flex flex-col p-4 md:p-8 relative z-0">
-        <div className="w-full max-w-5xl mx-auto">
-        {/* Combined Logo and Room ID Section */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 pb-4 gap-4">
+        <div className="w-full max-w-5xl mx-auto flex flex-col">
+          {/* Combined Logo and Room ID Section */}
+          <div className="flex flex-col md:flex-row items-center justify-between mb-4 pb-4 gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3 group md:w-1/4">
               <div className="p-2 rounded-lg bg-primary/15 shadow-sm group-hover:bg-primary/20 transition-all duration-300 border border-primary/10">
@@ -1035,7 +1037,6 @@ export default function Home() {
                     aria-label="Open settings"
                   >
                     <Settings size={20} className="text-primary" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
                   </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="p-5 flex flex-col">
@@ -1099,45 +1100,45 @@ export default function Home() {
                           <label htmlFor="codex-url" className="text-sm font-medium font-mono">API_ENDPOINT</label>
                           {codexEndpointType === 'local' ? (
                             <>
-                              <Input 
-                                id="codex-url"
-                                value={codexNodeUrl}
-                                onChange={handleCodexUrlChange}
-                                placeholder="http://localhost:8080/api/codex"
-                                className="font-mono text-sm bg-card/70"
-                              />
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs text-muted-foreground font-mono">
+                          <Input 
+                            id="codex-url"
+                            value={codexNodeUrl}
+                            onChange={handleCodexUrlChange}
+                            placeholder="http://localhost:8080/api/codex"
+                            className="font-mono text-sm bg-card/70"
+                          />
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground font-mono">
                                   Local Codex node API endpoint URL
-                                </p>
-                                <div className="flex items-center gap-1">
-                                  {isCodexNodeActive ? (
-                                    <span className="text-xs text-green-500 font-mono flex items-center gap-1">
-                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                      ACTIVE
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
-                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
-                                      {isCodexLoading ? "CHECKING" : "OFFLINE"}
-                                    </span>
-                                  )}
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => checkCodexStatus(true)}
-                                    className="h-6 w-6 p-0 rounded-full"
-                                    title="Refresh node status"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                                      <path d="M21 3v5h-5"></path>
-                                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                                      <path d="M3 21v-5h5"></path>
-                                    </svg>
-                                  </Button>
-                                </div>
-                              </div>
+                            </p>
+                            <div className="flex items-center gap-1">
+                              {isCodexNodeActive ? (
+                                <span className="text-xs text-green-500 font-mono flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600/80"></span>
+                                  {isCodexLoading ? "CHECKING" : "OFFLINE"}
+                                </span>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => checkCodexStatus(true)}
+                                className="h-6 w-6 p-0 rounded-full"
+                                title="Refresh node status"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                  <path d="M21 3v5h-5"></path>
+                                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                  <path d="M3 21v-5h5"></path>
+                                </svg>
+                              </Button>
+                            </div>
+                          </div>
                             </>
                           ) : (
                             <div className="p-3 bg-card/70 rounded-lg border border-border">
@@ -1473,239 +1474,33 @@ export default function Home() {
             <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
         </div>
           
-          {/* Files being uploaded section */}
-          <div className="mt-8">
-
           {/* Upload Area */}
-          <div 
-            {...getRootProps()} 
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all mb-8 bg-card shadow-sm relative overflow-hidden ${
-              isDragActive 
-                ? "border-primary bg-accent scale-[0.99]" 
-                : "border-border hover:border-primary/50 hover:bg-accent/50"
-            }`}
-          >
-            <input {...getInputProps()} />
-            <div className="flex flex-col items-center justify-center gap-3 relative z-10">
-              <div className={`p-4 rounded-full bg-accent transition-transform ${isDragActive ? 'scale-110' : ''}`}>
-                <Upload size={36} className={`transition-colors ${isDragActive ? 'text-primary' : 'text-primary/70'}`} />
-              </div>
-              <h3 className="text-lg font-medium mt-2 font-mono">
-                {isDragActive ? "Drop to share" : "Drag and drop your files here"}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-2 font-mono">
-                or click to select files
-              </p>
-              <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-mono border border-primary/10">
-                MAX_SIZE=100MB
-              </div>
-              
-              {/* Waku connection status */}
-              <div className="flex items-center gap-2 mt-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  isWakuConnected 
-                    ? 'bg-green-500 animate-pulse' 
-                    : isWakuConnecting 
-                      ? 'bg-amber-500 animate-pulse' 
-                      : 'bg-red-500'
-                }`}></div>
-                <span className="text-xs font-mono">
-                  {isWakuConnected 
-                    ? `WAKU: CONNECTED (${wakuPeerCount} peers)` 
-                    : isWakuConnecting 
-                      ? 'WAKU: CONNECTING...' 
-                      : 'WAKU: DISCONNECTED'}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addWakuDebugLog('info', 'Manual reconnection requested');
-                    reconnectWaku();
-                  }}
-                  className="text-xs font-mono text-primary/70 hover:text-primary bg-primary/10 px-2 py-0.5 rounded"
-                >
-                  RECONNECT
-                </button>
-              </div>
-              
-              {/* Debug buttons for testing - only in development */}
-              {process.env.NODE_ENV !== 'production' && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        testClipboardCopy('Test clipboard text ' + new Date().toISOString());
-                      }}
-                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                    >
-                      TEST_CLIPBOARD
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        testDirectUpload();
-                      }}
-                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                    >
-                      TEST_DIRECT_UPLOAD
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        testWakuMessage();
-                      }}
-                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                    >
-                      TEST_WAKU_MESSAGE
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWakuDebugVisible(!wakuDebugVisible);
-                      }}
-                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                    >
-                      {wakuDebugVisible ? 'HIDE_DEBUG' : 'SHOW_DEBUG'}
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const senderId = sessionStorage.getItem('wakuSenderId');
-                        const tabId = sessionStorage.getItem('wakuTabId');
-                        const userId = localStorage.getItem('wakuUserId');
-                        addWakuDebugLog('info', `Sender ID: ${senderId || 'not set'}`);
-                        addWakuDebugLog('info', `Tab ID: ${tabId || 'not set'}`);
-                        addWakuDebugLog('info', `User ID: ${userId || 'not set'}`);
-                        setCopySuccess(`Sender ID: ${senderId || 'not set'}`);
-                        setTimeout(() => setCopySuccess(null), 3000);
-                      }}
-                      className="mt-3 px-4 py-2 bg-primary/20 text-primary text-xs font-mono rounded-md hover:bg-primary/30 transition-colors"
-                    >
-                      SHOW_ID
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearSenderIds();
-                      }}
-                      className="mt-3 px-4 py-2 bg-amber-600/20 text-amber-600 text-xs font-mono rounded-md hover:bg-amber-600/30 transition-colors"
-                    >
-                      RESET_IDS
-                    </button>
-                  </div>
-                  
-                  {/* Waku Debug Panel */}
-                  {wakuDebugVisible && (
-                    <div 
-                      onClick={(e) => e.stopPropagation()} 
-                      className="mt-3 p-3 bg-black/80 border border-primary/30 rounded-md w-full max-w-full overflow-hidden text-left"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-mono text-primary">WAKU_DEBUG_CONSOLE</h4>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-muted-foreground">
-                            Room: {roomId}
-                          </span>
-                          <span className="text-xs font-mono text-muted-foreground">
-                            Peers: {wakuPeerCount}
-                          </span>
-                          <button
-                            onClick={() => setWakuDebugLogs([])}
-                            className="text-xs font-mono text-primary/70 hover:text-primary"
-                          >
-                            CLEAR
-                          </button>
-                        </div>
-                      </div>
-                      <div className="h-40 overflow-y-auto font-mono text-xs space-y-1 bg-black/50 p-2 rounded border border-primary/10">
-                        {wakuDebugLogs.length > 0 ? (
-                          wakuDebugLogs.map((log, index) => (
-                            <div key={index} className="flex">
-                              <span className="text-muted-foreground mr-2">[{log.timestamp}]</span>
-                              <span className={
-                                log.type === 'error' 
-                                  ? 'text-red-400' 
-                                  : log.type === 'success' 
-                                    ? 'text-green-400' 
-                                    : 'text-blue-400'
-                              }>
-                                {log.message}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-muted-foreground">No logs yet. Send a test message to see debug info.</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+          <div className="mt-8">
+            <div 
+              {...getRootProps()} 
+              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all mb-4 bg-card shadow-sm relative overflow-hidden ${
+                isDragActive 
+                  ? "border-primary bg-accent scale-[0.99]" 
+                  : "border-border hover:border-primary/50 hover:bg-accent/50"
+              }`}
+            >
+              <input {...getInputProps()} />
+              <div className="flex flex-col items-center justify-center gap-3 relative z-10">
+                <div className={`p-4 rounded-full bg-accent transition-transform ${isDragActive ? 'scale-110' : ''}`}>
+                  <Upload size={36} className={`transition-colors ${isDragActive ? 'text-primary' : 'text-primary/70'}`} />
                 </div>
-              )}
-              
-              {/* Upload Error Message */}
-              {uploadError && (
-                <div className="mt-3 p-2 bg-amber-600/20 border border-amber-600/30 rounded-md w-full max-w-md">
-                  <p className="text-xs text-amber-600/90 font-mono flex items-center gap-1">
-                    <AlertCircle size={12} />
-                    {uploadError}
-                  </p>
+                <h3 className="text-lg font-medium mt-2 font-mono">
+                  {isDragActive ? "Drop to share" : "Drag and drop your files here"}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2 font-mono">
+                  or click to select files
+                </p>
+                <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-mono border border-primary/10">
+                  MAX_SIZE=100MB
                 </div>
-              )}
+              </div>
             </div>
-            {/* Scanline effect */}
-            <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
           </div>
-        
-            <div className="space-y-3">
-                {Object.entries(uploadingFiles).map(([fileId, file]) => (
-                  <>
-                  <div key={fileId} className="p-3 bg-card rounded-lg border border-border">
-                    <div className="flex flex-col gap-1 text-sm">
-                      <h4 className="font-medium">{file.name}</h4>
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          {getFileIcon(file.type)}
-                          <span>{file.type.split('/')[1]?.toUpperCase() || 'FILE'}</span>
-                        </div>
-                        <span className="mx-1">•</span>
-                        <span>{file.size.toFixed(2)} MB</span>
-                      </div> 
-                      <div className="text-xs text-muted-foreground">
-                        {file.timestamp}
-                      </div> 
-                        {file.isEncrypted && (
-                        <div className="flex items-center text-yellow-600 dark:text-yellow-500 mt-1 text-xs">
-                          <Lock className="h-3 w-3 mr-1" />
-                          <span>Encrypted</span>
-                          {file.accessCondition && (
-                            <Tooltip>
-                              <TooltipTrigger> <Info className="h-3 w-3 ml-1 cursor-help" /> </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">{file.accessCondition}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-xs font-mono text-primary">{file.progress}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="bg-primary h-full transition-all duration-300 ease-in-out"
-                      style={{ width: `${file.progress}%` }}
-                    ></div>
-                  </div>
-                  </>
-                ))}
-              </div>
-            </div>
 
           {/* Sent and Received Files Tabs */}
           <Tabs defaultValue="sent" className="w-full">
@@ -1719,66 +1514,108 @@ export default function Home() {
                 RECEIVED_FILES
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="sent">
-              <Card className="shadow-sm border-border relative overflow-hidden">
-                <CardHeader className="pb-3 border-b border-border bg-card">
-                  <CardTitle className="text-lg font-mono">Files Sent</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 bg-card">
-                  <div className="h-[250px] overflow-y-auto overflow-x-hidden p-4 relative">
-                    {sentFiles.length > 0 ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="h-[250px] overflow-y-auto overflow-x-hidden space-y-4">
+                    {/* Combined Uploading and Sent Files */}
+                    {(Object.entries(uploadingFiles).length > 0 || sentFiles.length > 0) ? (
                       <div className="space-y-3">
-                        {sentFiles.map((file) => (
+                        {[
+                          // Combine uploading and sent files
+                          ...Object.entries(uploadingFiles).map(([fileId, file]) => ({
+                            id: fileId,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            timestamp: new Date().toLocaleString(),
+                            fileId: undefined,
+                            isUploading: true,
+                            progress: file.progress,
+                            isEncrypted: file.isEncrypted,
+                            accessCondition: file.accessCondition
+                          } as FileItem)),
+                          ...sentFiles
+                        ].map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors w-full">
                             <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-                              <div className="p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0">
+                              <div className={`p-2 rounded-md bg-card text-primary shadow-sm border border-border flex-shrink-0 ${file.isUploading ? 'animate-pulse' : ''}`}>
                                 {getFileIcon(file.type)}
                               </div>
                               <div className="min-w-0 flex-1 overflow-hidden">
-                                <p className="font-medium text-sm font-mono truncate">{file.name}
-                                  {file.isEncrypted &&
-                                  <Tooltip>
-                                    <TooltipTrigger> <Lock size={14} /> </TooltipTrigger>
-                                    <TooltipContent>
-                                      {file.accessCondition}
-                                    </TooltipContent>
-                                  </Tooltip>}
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm font-mono truncate">{file.name}</p>
+                                  {file.isUploading && (
+                                    <div className="flex items-center gap-1 text-xs text-primary animate-pulse">
+                                      <span className="font-mono">{file.progress}%</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground font-mono truncate">
+                                  {file.size.toFixed(2)} MB • {file.isUploading ? 'Uploading...' : file.timestamp}
                                 </p>
-                                <p className="text-xs text-muted-foreground font-mono truncate">{file.size.toFixed(2)} MB • {file.timestamp}</p>
+                                {file.isEncrypted && (
+                                  <div className="flex items-center text-yellow-600 dark:text-yellow-500 mt-1 text-xs">
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    <span>Encrypted</span>
+                                    {file.accessCondition && (
+                                      <Tooltip>
+                                        <TooltipTrigger>
+                                          <Info className="h-3 w-3 ml-1 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="text-xs">{file.accessCondition}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                )}
+                                {file.isUploading && (
+                                  <div className="w-full bg-muted rounded-full h-1 mt-2 overflow-hidden">
+                                    <div 
+                                      className="bg-primary h-full transition-all duration-300 ease-in-out"
+                                      style={{ width: `${file.progress}%` }}
+                                    ></div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleCopyFileCid(file.id.toString())}
-                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
-                                disabled={!file.fileId}
-                                title={file.fileId ? "Copy file CID" : "No CID available"}
-                              >
-                                {copiedFileCid === file.id.toString() ? (
-                                  <Check size={14} className="text-green-500" />
-                                ) : (
-                                  <Copy size={14} />
-                                )}
-                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
-                                  Copy CID
-                                </span>
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleDownloadFile(file.id.toString())}
-                                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
-                                disabled={!file.fileId}
-                                title={file.fileId ? "Download file" : "No file available for download"}
-                              >
-                                <Download size={14} />
-                                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
-                                  Download File
-                                </span>
-                              </Button>
+                              {!file.isUploading && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleCopyFileCid(file.id.toString())}
+                                    className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                    disabled={!file.fileId}
+                                    title={file.fileId ? "Copy file CID" : "No CID available"}
+                                  >
+                                    {copiedFileCid === file.id.toString() ? (
+                                      <Check size={14} className="text-green-500" />
+                                    ) : (
+                                      <Copy size={14} />
+                                    )}
+                                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                      Copy CID
+                                    </span>
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleDownloadFile(file.id.toString())}
+                                    className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary text-accent-foreground border border-primary/20 transition-all relative group"
+                                    disabled={!file.fileId}
+                                    title={file.fileId ? "Download file" : "No file available for download"}
+                                  >
+                                    <Download size={14} />
+                                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                                      Download File
+                                    </span>
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1796,8 +1633,6 @@ export default function Home() {
                     )}
                   </div>
                 </CardContent>
-                {/* Scanline effect */}
-                <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline"></div>
               </Card>
             </TabsContent>
             
