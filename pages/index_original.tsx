@@ -93,7 +93,12 @@ export default function Home() {
   const timeInputRef = useRef<HTMLDivElement>(null);
   const useEncryptionInputRef = useRef<HTMLDivElement>(null);
   const [useEncryption, setUseEncryption] = useState(false);
-  const [accessConditionType, setAccessConditionType] = useState<'time' | 'positive'>('positive');
+  
+  // MODIFIED: Added 'amoyNFTUserSpecified' to accessConditionType
+  const [accessConditionType, setAccessConditionType] = useState<'time' | 'positive' | 'amoyNFTUserSpecified'>('positive');
+  // MODIFIED: Added state for user-specified NFT contract address
+  const [nftContractAddress, setNftContractAddress] = useState('');
+  const nftContractAddressInputRef = useRef<HTMLDivElement>(null); // For scrolling
   
   // Effect to scroll to the time input section when selected
   useEffect(() => {
@@ -103,7 +108,14 @@ export default function Home() {
         timeInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
     }
+    // MODIFIED: Added scroll effect for NFT contract address input
+    if (accessConditionType === 'amoyNFTUserSpecified' && nftContractAddressInputRef.current) {
+        setTimeout(() => {
+          nftContractAddressInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
   }, [accessConditionType]);
+
   // Effect to scroll to the useEncryption input section when selected
   useEffect(() => {
     if (useEncryption && useEncryptionInputRef.current) {
@@ -348,8 +360,7 @@ export default function Home() {
 
           // If encryption is enabled and we have a wallet connected, encrypt the file
           if (useEncryption && walletConnected && signer) {
-            try {
-              // Create a condition based on selected type
+            try { // Single try block for condition creation and encryption
               let accessCondition;
               
               if (accessConditionType === 'positive') {
@@ -358,8 +369,20 @@ export default function Home() {
               } else if (accessConditionType === 'time') {
                 accessCondition = await createConditions.withinNumberOfSeconds(Number(windowTimeSeconds));
                 accessConditionDescription = `Accessible only within ${windowTimeSeconds} seconds of  ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+              // MODIFIED: Handle 'amoyNFTUserSpecified'
+              } else if (accessConditionType === 'amoyNFTUserSpecified') { 
+                if (!nftContractAddress || !ethers.utils.isAddress(nftContractAddress)) {
+                  setUploadError("Please enter a valid Amoy ERC721 contract address for the NFT condition.");
+                  setTimeout(() => setUploadError(null), 5000);
+                  // Clear uploading state for this file as setup failed
+                  setUploadingFiles(prev => { const updated = { ...prev }; delete updated[fileId]; return updated; });
+                  return; // Stop processing this file
+                }
+                accessCondition = createConditions.isAmoyNFTOwner(nftContractAddress); 
+                accessConditionDescription = `Requires ownership of an NFT from contract ${nftContractAddress.substring(0,6)}...${nftContractAddress.substring(nftContractAddress.length - 4)} on Polygon Amoy.`;
               } else {
-                throw new Error('Invalid access condition type');
+                // Fallback for unknown condition type
+                throw new Error('Invalid access condition type'); 
               }
               
               // Read file as ArrayBuffer
@@ -373,34 +396,31 @@ export default function Home() {
               });
               
               // Encrypt the file using TACo
-              try {
-                const encryptedBytes = await encryptDataToBytes(
-                  fileBytes,
-                  accessCondition,
-                  signer
-                );
+              const encryptedBytes = await encryptDataToBytes(
+                fileBytes,
+                accessCondition,
+                signer
+              );
                 
-                if (encryptedBytes) {
-                  // Wrap ciphertext into a File for Codex upload
-                  fileToUpload = new globalThis.File([encryptedBytes], `${file.name}.enc`, {
-                    type: 'application/octet-stream', // Use generic binary type
-                    lastModified: file.lastModified
-                  });
+              if (encryptedBytes) {
+                // Wrap ciphertext into a File for Codex upload
+                fileToUpload = new globalThis.File([encryptedBytes], `${file.name}.enc`, {
+                  type: 'application/octet-stream', // Use generic binary type
+                  lastModified: file.lastModified
+                });
                   
-                  isFileEncrypted = true;
-                  console.log('File encrypted successfully');
-                }
-              } catch (encryptError) {
-                console.log('Encryption error:', encryptError);
-                setUploadError(`Encryption failed: ${encryptError instanceof Error ? encryptError.message : 'Unknown error'}`);
-                setTimeout(() => setUploadError(null), 5000);
-                // Continue with unencrypted upload
+                isFileEncrypted = true;
+                console.log('File encrypted successfully');
+              } else { 
+                // Handle case where encryption might not return bytes
+                throw new Error("Encryption process did not return encrypted bytes.");
               }
-            } catch (conditionError) {
-              console.log('Error setting up access conditions:', conditionError);
-              setUploadError(`Error setting up access conditions: ${conditionError instanceof Error ? conditionError.message : 'Unknown error'}`);
+            } catch (conditionOrEncryptError) { // Catches any error in the encryption setup/process
+              console.error('Error during encryption setup or process:', conditionOrEncryptError);
+              setUploadError(`Encryption failed: ${conditionOrEncryptError instanceof Error ? conditionOrEncryptError.message : 'Unknown error'}`);
               setTimeout(() => setUploadError(null), 5000);
-              // Continue with unencrypted upload
+              // If encryption is enabled and fails, stop the upload for this file
+              return; 
             }
           }
           
@@ -414,7 +434,7 @@ export default function Home() {
           });
           
           // Handle upload completion
-          if (result.success) {
+          if (result.success && result.id) {
             // Add to sent files
             const timestamp = new Date().toLocaleString('en-US', {
               year: 'numeric',
@@ -451,19 +471,7 @@ export default function Home() {
             // Log the file object with CID
             console.log('Adding file to sent files:', newFile);
             
-            // Log the file ID for debugging
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(`File uploaded successfully. CID: ${result.id}`);
-            }
-            
             setSentFiles(prev => [newFile, ...prev]);
-            
-            // Remove from uploading files
-            setUploadingFiles(prev => {
-              const updated = { ...prev };
-              delete updated[fileId];
-              return updated;
-            });
             
             // Share the file with peers via Waku if connected
             if (isWakuConnected && result.id) {
@@ -483,21 +491,13 @@ export default function Home() {
             }
           } else {
             // Handle error
-            setUploadError(`Failed to upload ${file.name}: ${result.error}`);
+            setUploadError(`Failed to upload ${file.name}: ${result.error || 'Unknown upload error'}`);
             setTimeout(() => setUploadError(null), 5000);
-            
-            // Remove from uploading files
-            setUploadingFiles(prev => {
-              const updated = { ...prev };
-              delete updated[fileId];
-              return updated;
-            });
           }
         } catch (error) {
           setUploadError(`Error uploading ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
           setTimeout(() => setUploadError(null), 5000);
-          
-          // Remove from uploading files
+        } finally { // Robust cleanup
           setUploadingFiles(prev => {
             const updated = { ...prev };
             delete updated[fileId];
@@ -508,7 +508,13 @@ export default function Home() {
       
       uploadFile();
     });
-  }, [isCodexNodeActive, getCodexClient, isWakuConnected, sendFileMessage]);
+  // MODIFIED: Updated dependency array for onDrop
+  }, [
+    isCodexNodeActive, getCodexClient, isWakuConnected, sendFileMessage, 
+    useEncryption, walletConnected, signer, accessConditionType, createConditions, 
+    windowTimeSeconds, encryptDataToBytes, connectWallet, nftContractAddress,
+    addWakuDebugLog
+  ]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -705,10 +711,12 @@ export default function Home() {
     const file = sentFiles.find(f => f.id.toString() === fileId) || receivedFiles.find(f => f.id.toString() === fileId);
     if (!file) {
       setUploadError('File not found');
+      setTimeout(() => setUploadError(null), 5000); 
       return;
     }
     if (!file.fileId) {
       setUploadError('File ID not found');
+      setTimeout(() => setUploadError(null), 5000);
       return;
     }
     
@@ -732,19 +740,18 @@ export default function Home() {
         // Download encrypted data from Codex
 
         setCopySuccess(`Fetching encrypted file (${file.name}) from Codex...`);
-        const encryptedData = await downloadFile(file.fileId);
-        if (!encryptedData || !encryptedData.data) {
-          throw new Error('Failed to download encrypted file data');
+        const encryptedFileResult = await downloadFile(file.fileId); // downloadFile returns {success, data, error, metadata}
+        if (!encryptedFileResult.success || !encryptedFileResult.data) {
+          throw new Error(encryptedFileResult.error || 'Failed to download encrypted file data');
         }
         
         // Convert blob to Uint8Array for decryption
-        const encryptedArrayBuffer = await encryptedData.data.arrayBuffer();
+        const encryptedArrayBuffer = await encryptedFileResult.data.arrayBuffer();
         const encryptedBytes = new Uint8Array(encryptedArrayBuffer);
         
         // Decrypt the data
         try {
           // Ensure signer exists before attempting to decrypt
-          // Due to react hooks, the signer variable is not updated immediately if `await connectWallet()` was called
           if (!signer) {
             setUploadError('Please go to settings and connect your wallet to decrypt this file');
             setTimeout(() => setUploadError(null), 5000);
@@ -763,30 +770,29 @@ export default function Home() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = file.name;
+            a.download = file.name; // Use original file name
             document.body.appendChild(a);
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
             
             setCopySuccess(`Decrypted and downloaded ${file.name}`);
-            setTimeout(() => setCopySuccess(null), 3000);
           } else {
             throw new Error('Decryption returned no data');
           }
-        } catch (decryptError) {
-          console.log('Decryption failed:', decryptError);
-          const message = `Failed to decrypt: ${(decryptError as Error)?.message?.indexOf('Threshold of responses not met;') !== -1
-            ? 'Access denied. Threshold of responses not met.' : (decryptError as Error).message}`;
-          setDecryptionError(message);
-          setTimeout(() => setDecryptionError(null), 5000);
-
-          setUploadError(message);      
-          setTimeout(() => setUploadError(null), 5000);
+        } catch (decryptErr) {
+          console.error('Decryption failed:', decryptErr);
+          const errMsg = decryptErr instanceof Error ? decryptErr.message : String(decryptErr);
+          const displayMsg = errMsg.includes('Threshold of responses not met') 
+            ? 'Access denied. Threshold of responses not met.'
+            : errMsg;
+          setDecryptionError(displayMsg); 
+          setUploadError(`Failed to decrypt: ${displayMsg}`);    
+          setTimeout(() => { setDecryptionError(null); setUploadError(null); }, 5000);
         } finally {
           setDecryptionInProgress(prev => ({ ...prev, [file.fileId!]: false }));
         }
-      } else {
+      } else { // Non-encrypted file download path
           setCopySuccess(`Fetching file metadata...`);
           
           // Download the file using the CodexClient
@@ -799,7 +805,7 @@ export default function Home() {
           // Get data from successful download
           const { data: blob, metadata: { filename, mimetype } } = result;
           
-          setCopySuccess(`Downloading ${filename}...`);
+          setCopySuccess(`Downloading ${filename || file.name}...`);
           
           // Create a download link for the file
           const url = URL.createObjectURL(blob);
@@ -1400,7 +1406,7 @@ export default function Home() {
                               <div ref={useEncryptionInputRef} className="space-y-2">
                                 <RadioGroup 
                                   value={accessConditionType} 
-                                  onValueChange={(val) => setAccessConditionType(val as 'time' | 'positive')}
+                                  onValueChange={(val) => setAccessConditionType(val as 'time' | 'positive' | 'amoyNFTUserSpecified')}
                                   className="flex flex-col"
                                 >
                                   <div className="flex items-center space-x-2">
@@ -1410,6 +1416,11 @@ export default function Home() {
                                   <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="time" id="time" />
                                     <Label htmlFor="time" className="text-xs font-mono">TIME_WINDOW</Label>
+                                  </div>
+                                  {/* MODIFIED: RadioGroupItem for user-specified Amoy NFT */}
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="amoyNFTUserSpecified" id="amoyNFTUserSpecified" />
+                                    <Label htmlFor="amoyNFTUserSpecified" className="text-xs font-mono">ANY_AMOY_NFT (User Input)</Label>
                                   </div>
                                 </RadioGroup>
                               </div>
@@ -1429,6 +1440,14 @@ export default function Home() {
                                   <p className="text-xs text-muted-foreground font-mono">
                                     Access limited to specified time window in seconds
                                   </p>
+                                </div>
+                              )}
+                              {/* MODIFIED: Input field for user-specified Amoy NFT contract address */}
+                              {accessConditionType === 'amoyNFTUserSpecified' && (
+                                <div ref={nftContractAddressInputRef} className="space-y-1">
+                                  <Label htmlFor="nft-contract-address" className="text-xs font-mono text-muted-foreground">AMOY_NFT_CONTRACT_ADDRESS</Label>
+                                  <Input id="nft-contract-address" placeholder="0x..." value={nftContractAddress} onChange={(e) => setNftContractAddress(e.target.value)} className="font-mono text-sm bg-card/70" />
+                                  <p className="text-xs text-muted-foreground font-mono">Enter the ERC721 contract address on Polygon Amoy.</p>
                                 </div>
                               )}
                             </div>
@@ -1652,9 +1671,9 @@ export default function Home() {
                                 <p className="font-medium text-sm font-mono truncate">{file.name}
                                   {file.isEncrypted &&
                                   <Tooltip>
-                                    <TooltipTrigger> <Lock size={14} /> </TooltipTrigger>
+                                    <TooltipTrigger> <Lock size={14} className="ml-1 inline-block" /> </TooltipTrigger>
                                     <TooltipContent>
-                                      {file.accessCondition}
+                                      <p className="text-xs">{file.accessCondition}</p>
                                     </TooltipContent>
                                   </Tooltip>}
                                 </p>
