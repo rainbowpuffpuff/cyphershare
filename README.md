@@ -2,6 +2,10 @@
 
 A secure file sharing application built with Next.js, React, and TailwindCSS that integrates with Codex and Waku protocols.
 
+# Zuitzerland submission related to python data analysis
+
+https://docs.google.com/presentation/d/19MVHgrnRaFIN7SZK1lbIykEIgTo7uqOMqjIXKXmFIjo/
+
 ## Features
 
 - Secure file sharing with end-to-end encryption
