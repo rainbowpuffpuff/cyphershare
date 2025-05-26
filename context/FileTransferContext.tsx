@@ -1,6 +1,6 @@
 // /context/FileTransferContext.tsx
-// Central provider for file transfer + encryption + Waku messaging logic.
-// This code is largely extracted from the former pages/index.tsx monolithic component so we keep identical behaviour.
+// Orchestrates file transfer workflow using WakuContext, CodexContext, and TacoContext
+// Handles file management state, encrypting/decrypting, and coordinating operations between contexts
 
 import React, {
   createContext,
@@ -8,33 +8,22 @@ import React, {
   useState,
   useCallback,
   ReactNode,
-  useRef,
-  useEffect,
+  forwardRef,
+  useImperativeHandle,
 } from "react";
 import { toast } from "sonner";
-import { useSettings } from "./SettingsContext";
-import { useWallet } from "./wallet-context";
 import { useTacoContext } from "./TacoContext";
-import { useCodex } from "@/hooks/useCodex";
-import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
-import { ethers } from "ethers";
-
+import { useCodexContext } from "./CodexContext";
+import { useWakuContext } from "./WakuContext";
+import { WakuFileMessage } from "@/hooks/useWaku";
+import { useFileList } from "@/hooks/useFileList";
+import { useFileEncryption } from "@/hooks/useFileEncryption";
+import { prepareFileMetadata, copyToClipboard, downloadFileFromBlob } from "@/utils/fileUtils";
+import { FileItem } from "@/types/files";
 
 //-----------------------------------------------------------------------------
-// Types (mostly lifted from the old index.tsx)
+// Types 
 //-----------------------------------------------------------------------------
-export interface FileItem {
-  id: number | string;
-  name: string;
-  size: number; // MB
-  type: string;
-  timestamp: string;
-  fileId?: string;
-  isEncrypted?: boolean;
-  accessCondition?: string;
-  isUploading?: boolean;
-  progress?: number;
-}
 
 interface FileTransferContextType {
   // State
@@ -58,9 +47,8 @@ interface FileTransferContextType {
   sendFiles: (files: File[]) => Promise<void>;
   copyFileCid: (fileId: string) => Promise<void>;
   downloadFile: (fileId: string) => Promise<void>;
-  // TaCo status (forwarded from TacoContext)
+  // Forwarded status from other contexts
   isTacoInit: boolean;
-  // Waku status helpers
   wakuPeerCount: number;
   isWakuConnected: boolean;
   isWakuConnecting: boolean;
@@ -76,102 +64,88 @@ export const useFileTransfer = () => {
 //-----------------------------------------------------------------------------
 // Provider implementation
 //-----------------------------------------------------------------------------
+// Public interface for FileTransfer handle that can be passed to WakuProvider
+export interface FileTransferHandle {
+  handleFileReceived: (fileMessage: WakuFileMessage) => void;
+}
+
 interface Props {
   children: ReactNode;
 }
 
-export function FileTransferProvider({ children }: Props) {
-  const { codexNodeUrl, codexEndpointType, wakuNodeUrl, wakuNodeType } = useSettings();
-  const {
-    provider,
-    signer,
-    walletConnected,
-    connectWallet,
-  } = useWallet();
+export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ children }, ref) => {
 
   // Get TACo functionality from the TacoContext
   const {
     isTacoInit,
     encryptDataToBytes,
     decryptDataFromBytes,
-    createPositiveBalanceCondition,
-    createTimeWindowCondition,
     useEncryption,
-    setUseEncryption,
     accessConditionType,
-    setAccessConditionType,
     windowTimeSeconds,
-    setWindowTimeSeconds,
   } = useTacoContext();
 
-  // Codex hook
+  // Get Codex functionality from CodexContext
   const {
-    isNodeActive: isCodexNodeActive,
-    isLoading: isCodexLoading,
-    updateConfig: updateCodexConfig,
-    checkNodeStatus: checkCodexStatus,
-    error: codexError,
-    getNodeInfo,
-    getCodexClient,
+    isCodexNodeActive,
     uploadFile: codexUploadFile,
     downloadFile: codexDownloadFile,
-  } = useCodex(codexNodeUrl);
+  } = useCodexContext();
 
-  // State mirrors
-  const [sentFiles, setSentFiles] = useState<FileItem[]>([]);
-  const [receivedFiles, setReceivedFiles] = useState<FileItem[]>([]);
+  // Get Waku functionality from WakuContext
+  const {
+    isWakuConnected,
+    isWakuConnecting,
+    wakuPeerCount,
+    sendFileMessage,
+  } = useWakuContext();
+
+  const { 
+    encryptFile, 
+    decryptBlob, 
+    checkEncryptionRequirements, 
+    error: encryptionError, 
+    setError: setEncryptionError 
+  } = useFileEncryption();
+  // State for file management
+  const { sentFiles, receivedFiles, addSentFile, addReceivedFile, findFileById } = useFileList();
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, any>>({});
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
-  // TACo settings are now managed by TacoContext
-
-  // Waku hook (contentTopic depends on default room XYZ123)
-  const {
-    isConnecting: isWakuConnecting,
-    isConnected: isWakuConnected,
-    error: wakuError,
-    sendFileMessage,
-    peerCount: wakuPeerCount,
-    contentTopic: wakuContentTopic,
-  } = useWaku({
-    roomId: "XYZ123",
-    wakuNodeUrl,
-    wakuNodeType: wakuNodeType as "light" | "relay",
-    onFileReceived: (msg) => handleFileReceived(msg),
-  });
-
   //-----------------------------------------------------------------------------
-  // File receive handler (same logic as old)
+  // Expose handleFileReceived to the WakuProvider via ref
   //-----------------------------------------------------------------------------
   const handleFileReceived = useCallback(
-    (fileMessage: WakuFileMessage) => {
-      const ourSenderId = sessionStorage.getItem("wakuSenderId");
-      const isSentByUs = ourSenderId && fileMessage.sender === ourSenderId;
-      if (isSentByUs) {
-        return; // ignore our own
-      }
+  (fileMessage: WakuFileMessage) => {
+    const ourSenderId = sessionStorage.getItem("wakuSenderId");
+    const isSentByUs = ourSenderId && fileMessage.sender === ourSenderId;
+    if (isSentByUs) {
+      return; // ignore our own
+    }
 
-      // Don’t double-add
-      setReceivedFiles((prev) => {
-        if (prev.some((f) => f.fileId === fileMessage.fileId)) return prev;
-        const newItem: FileItem = {
-          id: Date.now(),
-          name: fileMessage.fileName,
-          size: fileMessage.fileSize,
-          type: fileMessage.fileType,
-          timestamp: new Date(fileMessage.timestamp).toLocaleTimeString(),
-          fileId: fileMessage.fileId,
-          isEncrypted: fileMessage.isEncrypted,
-          accessCondition: fileMessage.accessCondition,
-        };
-        return [newItem, ...prev];
-      });
-    },
-    []
-  );
+    // Create file item and add to received list
+    const newItem: FileItem = {
+      id: Date.now(),
+      name: fileMessage.fileName,
+      size: fileMessage.fileSize,
+      type: fileMessage.fileType,
+      timestamp: new Date(fileMessage.timestamp).toLocaleTimeString(),
+      fileId: fileMessage.fileId,
+      isEncrypted: fileMessage.isEncrypted,
+      accessCondition: fileMessage.accessCondition,
+    };
+    
+    addReceivedFile(newItem);
+  },
+  [addReceivedFile]
+);
+  
+  // Expose the handleFileReceived function to parent components via ref
+  useImperativeHandle(ref, () => ({
+    handleFileReceived
+  }));
 
-  //-----------------------------------------------------------------------------
   // Send files (drop handler extracted)
   //-----------------------------------------------------------------------------
   const sendFiles = useCallback(
@@ -181,26 +155,13 @@ export function FileTransferProvider({ children }: Props) {
         toast.error("Codex node is not active. Cannot upload files.");
         return;
       }
-
-      // If encryption is intended, ensure wallet is connected and TACo is ready.
+  
+      // Check if encryption requirements are met
       if (useEncryption) {
-        if (!walletConnected) {
-          toast.error("Encryption requested, but wallet is not connected. Please connect your wallet.");
-          setUploadError("Wallet not connected for encryption.");
-          return;
-        }
-        if (!signer) {
-          toast.error("Encryption requested, but wallet signer is not available. Please reconnect your wallet.");
-          setUploadError("Wallet signer not available for encryption.");
-          return;
-        }
-        if (!isTacoInit) {
-          toast.error("Encryption service (TACo) is not ready. Please try again in a moment.");
-          setUploadError("Encryption service not ready.");
-          return;
-        }
+        const encryptionCheck = checkEncryptionRequirements();
+        if (!encryptionCheck.success) return;
       }
-
+  
       for (const file of files) {
         const fileId = `upload-${Date.now()}-${file.name}`;
         setUploadingFiles((prev) => ({
@@ -212,59 +173,55 @@ export function FileTransferProvider({ children }: Props) {
             type: file.type,
           },
         }));
-
+  
         let uploadFileObj: File | Blob = file;
         let encrypted = false;
-        let accessCond: any = undefined;
-
-        if (useEncryption && walletConnected && signer && isTacoInit) {
-          encrypted = true;
-          // Prepare condition
-          let accessCond;
-          if (accessConditionType === "positive") {
-            console.log("Creating positive balance condition...");
-            accessCond = createPositiveBalanceCondition();
-          } else if (accessConditionType === "time") {
-            console.log("Creating time window condition...");
-            const timeSeconds = parseInt(windowTimeSeconds) || 60; // default 60 seconds
-            accessCond = await createTimeWindowCondition(timeSeconds);
+        let accessCondition: string | undefined;
+  
+        if (useEncryption) {
+          // Use the encryptFile hook function
+          const encryptionResult = await encryptFile(file, {
+            accessConditionType,
+            windowTimeSeconds
+          });
+          
+          if (encryptionResult.encryptedFile) {
+            uploadFileObj = encryptionResult.encryptedFile;
+            encrypted = true;
+            accessCondition = encryptionResult.accessCondition;
           } else {
-            throw new Error(`Unknown condition type: ${accessConditionType}`);
+            // Encryption failed, show error
+            setUploadError("Encryption failed");
+            continue;
           }
-
-          // Read file bytes
-          const arrayBuff = await file.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuff);
-          const cipherBytes = await encryptDataToBytes(bytes, accessCond, signer);
-          if (!cipherBytes) throw new Error("Encryption failed");
-
-          uploadFileObj = new File([cipherBytes], `${file.name}.enc`, {
-            type: "application/octet-stream",
-          });
         }
-
+  
         try {
-          const res = await codexUploadFile(uploadFileObj as any, (progress) => {
-            setUploadingFiles((prev) => ({
-              ...prev,
-              [fileId]: {
-                ...(prev[fileId] || {}),
-                progress,
-              },
-            }));
-          });
-
-          const newSentFile: FileItem = {
-            id: fileId,
-            name: file.name,
-            size: file.size / (1024 * 1024),
-            type: file.type,
-            timestamp: new Date().toLocaleTimeString(),
-            fileId: (res as any).id ?? undefined,
+          const res = await codexUploadFile(
+            uploadFileObj instanceof File ? uploadFileObj : new File([uploadFileObj], file.name), 
+            (progress) => {
+              setUploadingFiles((prev) => ({
+                ...prev,
+                [fileId]: {
+                  ...(prev[fileId] || {}),
+                  progress,
+                },
+              }));
+            }
+          );
+  
+          // Create file item with helper function
+          const newSentFile = prepareFileMetadata(file, fileId, {
             isEncrypted: encrypted,
-            accessCondition: encrypted ? accessConditionType : undefined,
-          };
-          setSentFiles((prev) => [newSentFile, ...prev]);
+            accessCondition
+          });
+          
+          // Add file ID from Codex response
+          newSentFile.fileId = res.id ?? undefined;
+          
+          // Add to sent files
+          addSentFile(newSentFile);
+          
           // Notify others via Waku
           await sendFileMessage({
             fileName: newSentFile.name,
@@ -287,17 +244,13 @@ export function FileTransferProvider({ children }: Props) {
     [
       isCodexNodeActive,
       useEncryption,
-      walletConnected,
-      signer,
-      isTacoInit,
-      setUploadError,
-      codexUploadFile,
-      sendFileMessage,
+      checkEncryptionRequirements,
       accessConditionType,
-      createPositiveBalanceCondition,
-      createTimeWindowCondition,
       windowTimeSeconds,
-      encryptDataToBytes,
+      encryptFile,
+      codexUploadFile,
+      addSentFile,
+      sendFileMessage
     ]
   );
 
@@ -305,27 +258,35 @@ export function FileTransferProvider({ children }: Props) {
   // Copy & Download helpers (simplified)
   //-----------------------------------------------------------------------------
   const copyFileCid = useCallback(async (fid: string) => {
-    const file = [...sentFiles, ...receivedFiles].find((f) => f.id.toString() === fid);
+    const file = findFileById(fid);
     if (!file || !file.fileId) return;
+    
     try {
-      await navigator.clipboard.writeText(file.fileId);
-      setCopySuccess("CID copied");
-      setTimeout(() => setCopySuccess(null), 2000);
+      const success = await copyToClipboard(file.fileId);
+      if (success) {
+        setCopySuccess("CID copied");
+        setTimeout(() => setCopySuccess(null), 2000);
+      } else {
+        setUploadError("Failed to copy CID");
+      }
     } catch {
       setUploadError("Failed to copy CID");
     }
-  }, [sentFiles, receivedFiles]);
+  }, [findFileById]);
 
   const downloadFile = useCallback(
     async (fid: string) => {
       console.log(`Starting download for file ID: ${fid}`);
-      const file = [...sentFiles, ...receivedFiles].find((f) => f.id.toString() === fid);
+      const file = findFileById(fid);
       if (!file || !file.fileId) {
         setUploadError("File not found");
+        toast.error("File not found", {
+          description: `Could not find file with ID: ${fid}`
+        });
         console.error(`File not found for ID: ${fid}`);
         return;
       }
-
+  
       console.log(`Processing download for: ${file.name} (encrypted: ${file.isEncrypted ? 'yes' : 'no'})`);
       
       try {
@@ -334,101 +295,37 @@ export function FileTransferProvider({ children }: Props) {
         
         const res = await codexDownloadFile(file.fileId);
         if (!res.success || !res.data) {
-          setUploadError(res.error || "Download failed");
+          const errorMsg = res.error || "Download failed";
+          setUploadError(errorMsg);
+          toast.error("Download failed", { description: errorMsg });
           console.error(`Codex download failed:`, res.error);
           return;
         }
-
-        let blob: Blob | null = null;
-
-        // Handle encrypted files
+  
+        // Handle encrypted files with our new hook
         if (file.isEncrypted) {
           console.log(`Processing encrypted file with condition: ${file.accessCondition}`);
           
-          // Ensure wallet is connected
-          if (!walletConnected) {
-            setUploadError("Wallet not connected – connect wallet to decrypt");
-            console.error("Wallet not connected for decryption");
-            return;
-          }
-          
-          // Ensure signer is available
-          if (!signer) {
-            setUploadError("Wallet not providing signer – please reconnect");
-            console.error("No signer available");
-            return;
-          }
-          
-          // Ensure TACo is initialized
-          if (!isTacoInit) {
-            setUploadError("TACo not initialized - please try again in a moment");
-            console.error("TACo not initialized");
-            return;
-          }
-
           setCopySuccess(`Decrypting ${file.name}...`);
-          const bytes = new Uint8Array(await res.data.arrayBuffer());
           
-          try {
-            console.log(`Starting decryption for ${file.name}...`);
-            const plainBytes = await decryptDataFromBytes(bytes, signer);
-            console.log(`Decryption complete, creating blob...`);
-            
-            if (!plainBytes) {
-              throw new Error("Decryption returned empty result");
-            }
-            
-            blob = new Blob([plainBytes], { type: file.type || "application/octet-stream" });
-          } catch (e) {
-            const errorMsg = e instanceof Error ? e.message : "Unknown error";
-            console.log(`Decryption error:`, errorMsg);
-            
-            // User-friendly error message
-            let userMessage = "";
-            if (errorMsg.includes("Threshold of responses not met") || errorMsg.includes("condition not satisfied")) {
-              // Generate condition-specific error description
-              let conditionDesc = "";
-              if (file.accessCondition === "positive") {
-                conditionDesc = "Your wallet must have a positive balance to access this file";
-              } else if (file.accessCondition === "time") {
-                conditionDesc = `This file is time-locked and can only be accessed within the specified time window`;
-              } else {
-                conditionDesc = `The file "${file.name}" requires specific conditions to be met for decryption`;
-              }
-              
-              userMessage = "Access denied: TACo condition not satisfied";
-              // Show toast notification for access denied
-              toast.error(userMessage, {
-                description: conditionDesc,
-                duration: 10000
-              });
-            } else {
-              userMessage = `Decryption failed: ${errorMsg}`;
-              toast.error("Decryption failed", {
-                description: errorMsg,
-                duration: 10000
-              });
-            }
-            
-            setUploadError(userMessage);
+          const decryptResult = await decryptBlob(
+            res.data as Blob, 
+            file.type, 
+            file.accessCondition
+          );
+          
+          if (!decryptResult.decryptedBlob) {
+            setUploadError(decryptResult.error || "Decryption failed");
             setCopySuccess(null);
             return;
           }
+          
+          // Download the decrypted blob
+          downloadFileFromBlob(decryptResult.decryptedBlob, file.name);
         } else {
-          // Handle regular files
-          blob = res.data as Blob;
+          // Download regular file
+          downloadFileFromBlob(res.data as Blob, file.name);
         }
-
-        console.log(`Creating download for ${file.name}...`);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
         
         setCopySuccess(`Downloaded ${file.name} successfully`);
         setTimeout(() => setCopySuccess(null), 3000);
@@ -440,28 +337,33 @@ export function FileTransferProvider({ children }: Props) {
         setCopySuccess(null);
       }
     },
-    [sentFiles, receivedFiles, codexDownloadFile, walletConnected, signer, isTacoInit, decryptDataFromBytes]
+    [findFileById, codexDownloadFile, decryptBlob]
   );
 
   //-----------------------------------------------------------------------------
-  // Provider value
+  // Provider value - all functionality orchestrated through this context
   //-----------------------------------------------------------------------------
   const ctxValue: FileTransferContextType = {
+    // State
     sentFiles,
     receivedFiles,
     uploadingFiles,
     uploadError,
     copySuccess,
+    
+    // Core file operations
     sendFiles,
     copyFileCid,
     downloadFile,
+    
+    // Status forwarded from other contexts
     isTacoInit,
     wakuPeerCount,
     isWakuConnected,
     isWakuConnecting,
-  } as FileTransferContextType;
+  };
 
   return (
     <FileTransferContext.Provider value={ctxValue}>{children}</FileTransferContext.Provider>
   );
-}
+});

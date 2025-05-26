@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTacoContext } from "@/context/TacoContext";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
-import { useWallet } from "@/context/wallet-context";
+import { useWallet } from "@/context/WalletContext";
 import { useRef } from "react";
 import { Input } from "../ui/input";
 

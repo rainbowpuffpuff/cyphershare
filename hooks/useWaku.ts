@@ -4,7 +4,6 @@ import {
   DecodedMessage,
   LightNode,
   Protocols,
-  utils,
 } from "@waku/sdk";
 import protobuf from "protobufjs";
 
@@ -269,6 +268,7 @@ export const useWaku = ({
     isEncrypted?: boolean;
     accessCondition?: string;
   }) => {
+    console.log('Sending file message:', fileData);
     if (!node || !encoder || !isConnected) {
       console.error('Cannot send message: Waku node is not connected', {
         node: !!node,

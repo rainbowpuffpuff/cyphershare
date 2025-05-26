@@ -1,7 +1,6 @@
 // components/waku/WakuStatusIndicatorDot.tsx
 import { useFileTransfer } from "@/context/FileTransferContext";
 import { useSettings } from "@/context/SettingsContext";
-import { cn } from "@/lib/utils";
 
 export default function WakuStatusIndicatorDot() {
   const { isWakuConnected, isWakuConnecting, wakuPeerCount } = useFileTransfer();
