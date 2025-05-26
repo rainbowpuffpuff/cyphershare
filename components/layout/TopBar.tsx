@@ -5,8 +5,6 @@ import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useSettings } from "@/context/SettingsContext";
-import { useFileTransfer } from "@/context/FileTransferContext";
 import { cn } from "@/lib/utils";
 import WakuStatusIndicatorDot from "@/components/waku/WakuStatusIndicatorDot";
 
@@ -15,9 +13,6 @@ export default function TopBar() {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  const { wakuNodeType } = useSettings();
-  const { isWakuConnected, wakuPeerCount } = useFileTransfer();
   
   // Only show client-side elements after component mounts to prevent hydration errors
   useEffect(() => {
@@ -31,16 +26,17 @@ export default function TopBar() {
   };
 
   return (
-    <header className="flex items-center justify-between p-4 border-b border-border w-full flex-wrap gap-3">
+    <div className=" w-full max-w-5xl mx-auto flex flex-col">
+    <header className=" flex flex-col flex-wrap md:flex-row items-center justify-between border-b border-border  pb-8 pt-8 gap-4">
       {/* Logo section */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="p-1.5 rounded-md bg-primary/15 border border-primary/10">
+        <div className="p-2 rounded-lg bg-primary/15 shadow-sm group-hover:bg-primary/20 transition-all duration-300 border border-primary/10">
           <Waypoints size={18} className="text-primary" />
         </div>
-        <h1 className="font-mono text-lg tracking-tight">CypherShare</h1>
+        <h1 className="font-mono text-lg font-bold tracking-tight">CypherShare</h1>
         <span className="hidden md:flex items-center h-5 px-2 rounded-full bg-muted/60 border border-border text-[10px] font-medium text-muted-foreground font-mono">alpha</span>
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-4 flex-wrap flex items-center justify-center ">
         {/* Room ID control - centered */}
         <div className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-1.5 bg-card shadow-sm relative flex-shrink-0 flex-wrap">
           <span className="text-sm font-medium text-secondary-foreground whitespace-nowrap font-mono hidden md:inline">Room ID:</span>
@@ -67,6 +63,7 @@ export default function TopBar() {
           )}
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline" />
         </div>
+      </div>
         <a
           href="https://github.com/hackyguru/cyphershare"
           target="_blank"
@@ -78,7 +75,7 @@ export default function TopBar() {
         </a>
         <WalletConnectButton className="h-8" />
         <SettingsSheet />
-      </div>
     </header>
+    </div>
   );
 }

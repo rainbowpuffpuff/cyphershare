@@ -6,7 +6,7 @@ import { useFileTransfer } from "@/context/FileTransferContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useWaku } from "@/hooks/useWaku";
+import { useWakuContext } from "@/context/WakuContext";
 import WakuStatusIndicatorDot from "../waku/WakuStatusIndicatorDot";
 
 export default function WakuConfigPanel() {
@@ -16,10 +16,7 @@ export default function WakuConfigPanel() {
   const [localWakuUrl, setLocalWakuUrl] = useState(wakuNodeUrl);
   const [roomId] = useState("XYZ123");
 
-  const {
-    contentTopic: wakuContentTopic,
-    error: wakuError,
-  } = useWaku({ roomId, wakuNodeUrl: localWakuUrl, wakuNodeType });
+  const { wakuContentTopic, wakuError } = useWakuContext();
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);

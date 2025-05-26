@@ -4,7 +4,7 @@ import { Copy, Download, File, FileText, Image as ImageIcon } from "lucide-react
 import { useFileTransfer } from "@/context/FileTransferContext";
 import EncryptionBadge from "./EncryptionBadge";
 
-import { FileItem } from "@/context/FileTransferContext";
+import { FileItem } from "@/types/files";
 
 interface Props {
   item: FileItem;
@@ -35,6 +35,11 @@ export default function FileRow({ item }: Props) {
           {item.fileId && (
             <p className="text-xs text-primary/70 font-mono truncate" title={item.fileId}>
               CID: {item.fileId.substring(0, 8)}...{item.fileId.substring(item.fileId.length - 6)}
+            </p>
+          )}
+          {!item.fileId && (
+            <p className="text-xs text-primary/70 font-mono truncate">
+              CID: Not available
             </p>
           )}
           {item.isEncrypted && <EncryptionBadge accessCondition={item.accessCondition} />}

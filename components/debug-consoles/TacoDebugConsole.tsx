@@ -3,11 +3,9 @@ import { useState, useEffect, useCallback } from "react";
 import { XCircle, Info, AlertCircle, CheckCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useWallet } from "@/context/wallet-context";
+import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
-import { domains } from "@nucypher/taco";
 import { cn } from "@/lib/utils";
-import { ethers } from "ethers";
 
 type LogType = "info" | "error" | "success";
 

@@ -2,21 +2,31 @@ import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { WalletProvider } from "@/context/wallet-context";
+import { useRef } from "react";
+import { WalletProvider } from "@/context/WalletContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { TacoProvider } from "@/context/TacoContext";
-import { FileTransferProvider } from "@/context/FileTransferContext";
+import { CodexProvider } from "@/context/CodexContext";
+import { WakuProvider } from "@/context/WakuContext";
+import { FileTransferProvider, FileTransferHandle } from "@/context/FileTransferContext";
 
 export default function App({ Component, pageProps }: AppProps) {
+  // Create a ref to access the FileTransferProvider's handleFileReceived method
+  const fileTransferRef = useRef<FileTransferHandle>(null);
+
   return (
     <ThemeProvider defaultTheme="system">
       <SettingsProvider>
         <WalletProvider>
           <TacoProvider>
-            <FileTransferProvider>
-              <Component {...pageProps} />
-              <Toaster richColors position="top-center" />
-            </FileTransferProvider>
+            <CodexProvider>
+              <WakuProvider onFileReceived={(msg) => fileTransferRef.current?.handleFileReceived(msg)}>
+                <FileTransferProvider ref={fileTransferRef}>
+                  <Component {...pageProps} />
+                  <Toaster richColors position="top-center" />
+                </FileTransferProvider>
+              </WakuProvider>
+            </CodexProvider>
           </TacoProvider>
         </WalletProvider>
       </SettingsProvider>

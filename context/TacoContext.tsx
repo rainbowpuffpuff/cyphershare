@@ -7,8 +7,7 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
-import { toast } from "sonner";
-import { useWallet } from "./wallet-context";
+import { useWallet } from "./WalletContext";
 import useTaco from "@/hooks/useTaco";
 import { domains, conditions } from "@nucypher/taco";
 import { ethers } from "ethers";
@@ -33,9 +32,6 @@ interface TacoContextType {
     signer: ethers.Signer
   ) => Promise<Uint8Array>;
   
-  // Condition creation helpers
-  createPositiveBalanceCondition: () => conditions.condition.Condition;
-  createTimeWindowCondition: (timeWindowInSeconds: number) => Promise<conditions.condition.Condition>;
   
   // Encryption settings
   useEncryption: boolean;
@@ -48,6 +44,21 @@ interface TacoContextType {
   // Configuration
   ritualId: number;
   domain: string;
+  
+  /**
+   * Returns an access condition object **and** a user-friendly description
+   * based on the selected accessConditionType plus optional parameters.
+   * Useful for UI tool-tips and sharing with peers.
+   */
+  createCondition: (
+    type: "positive" | "time",
+    params?: {
+      windowTimeInSeconds?: number
+    }
+  ) => Promise<{
+    condition: conditions.condition.Condition;
+    description: string;
+  }>;
 }
 
 const TacoContext = createContext<TacoContextType | null>(null);
@@ -108,6 +119,28 @@ export function TacoProvider({ children }: Props) {
     [createConditions, networkError]
   );
 
+  // Descriptor helper (central place for generating human-readable descriptions)
+  const createCondition = useCallback(
+    async (type: "positive" | "time", params?: { windowTimeInSeconds?: number }) => {
+      if (type === "positive") {
+        const condition = createPositiveBalanceCondition();
+        const description =
+          "The account needs to have a positive balance to decrypt this file";
+        return { condition, description, type } as const;
+      }
+
+      if (type === "time") {
+        const sec = params?.windowTimeInSeconds || 60;
+        const condition = await createTimeWindowCondition(sec);
+        const description = `Accessible only within ${sec} seconds of ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+        return { condition, description, type } as const;
+      }
+
+      throw new Error("Invalid access condition type");
+    },
+    [createPositiveBalanceCondition, createTimeWindowCondition]
+  );
+
   // Log initialization status for debugging
   useEffect(() => {
     console.log("TACo initialization status:", {
@@ -123,8 +156,6 @@ export function TacoProvider({ children }: Props) {
     networkError,
     encryptDataToBytes,
     decryptDataFromBytes,
-    createPositiveBalanceCondition,
-    createTimeWindowCondition,
     useEncryption,
     setUseEncryption,
     accessConditionType,
@@ -133,6 +164,7 @@ export function TacoProvider({ children }: Props) {
     setWindowTimeSeconds,
     ritualId,
     domain: domain.toString(),
+    createCondition,
   };
 
   return (

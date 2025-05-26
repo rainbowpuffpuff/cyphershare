@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFileTransfer } from "@/context/FileTransferContext";
 import { cn } from "@/lib/utils";
-import WakuStatusIndicatorDot from "./WakuStatusIndicatorDot";
 
 type LogType = 'info' | 'error' | 'success';
 
@@ -69,7 +68,15 @@ export default function WakuDebugConsole() {
         title="Waku Debug Console"
       >
         <Terminal size={18} className="text-primary" />
-        <WakuStatusIndicatorDot />
+        <div
+          className={cn(
+            "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-card",
+            isWakuConnected ? "bg-green-500 animate-pulse" : 
+            isWakuConnecting ? "bg-amber-500" : "bg-red-500"
+          )}
+          title={!isWakuConnected ? "Waku not connected" : 
+                 isWakuConnecting ? "Waku connecting" : "Waku connected"}
+        ></div>
       </Button>
 
       {/* Debug Console Panel */}

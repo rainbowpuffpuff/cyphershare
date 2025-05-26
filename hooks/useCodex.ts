@@ -799,12 +799,13 @@ export function useCodex(initialUrl?: string) {
 
   // Check node status
   const checkNodeStatus = useCallback(
-    async (forceCheck: boolean = false) => {
+    async (forceCheck: boolean = false): Promise<boolean> => {
       setIsLoading(true);
       setError(null);
+      let isActive = false;
 
       try {
-        const isActive = await client.isNodeActive(forceCheck);
+        isActive = await client.isNodeActive(forceCheck);
         setIsNodeActive(isActive);
         setError(null);
       } catch (err) {
@@ -815,6 +816,8 @@ export function useCodex(initialUrl?: string) {
       } finally {
         setIsLoading(false);
       }
+      
+      return isActive;
     },
     [client]
   );

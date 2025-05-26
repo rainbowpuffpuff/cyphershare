@@ -12,38 +12,11 @@ import {
 import { Settings, Server, Shield, Radio } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useSettings } from "@/context/SettingsContext";
-import { useState, useEffect } from "react";
-import TacoConfigPanel from "@/components/files/TacoConfigPanel";
+import TacoConfigPanel from "@/components/settings/TacoConfigPanel";
 import CodexConfigPanel from './CodexConfigPanel';
 import WakuConfigPanel from './WakuConfigPanel';
 
 export default function SettingsSheet() {
-  const {
-    codexEndpointType,
-    codexNodeUrl,
-    updateSettings,
-  } = useSettings();
-
-  const [endpointType, setEndpointType] = useState(codexEndpointType);
-  const [url, setUrl] = useState(codexNodeUrl);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setEndpointType(codexEndpointType);
-    setUrl(codexNodeUrl);
-  }, [codexEndpointType, codexNodeUrl]);
-
-  const handleSave = () => {
-    setSaving(true);
-    updateSettings({ codexEndpointType: endpointType, codexNodeUrl: url });
-    setTimeout(() => {
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    }, 500);
-  };
 
   return (
     <Sheet>
@@ -66,15 +39,15 @@ export default function SettingsSheet() {
           <Tabs defaultValue="encryption" className="w-full">
             <TabsList className="flex flex-wrap w-full gap-1 mb-6 font-mono bg-muted rounded-lg min-h-[2rem]">
               
-              <TabsTrigger value="communication" className="text-xs border border-border min-h-[2rem] w-[160px] flex items-center justify-center">
+              <TabsTrigger value="communication" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
                 <Radio size={14} className="mr-1" />
                 COMMUNICATION
               </TabsTrigger>
-              <TabsTrigger value="storage" className="text-xs border border-border min-h-[2rem] w-[160px] flex items-center justify-center">
+              <TabsTrigger value="storage" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
                 <Server size={14} className="mr-1" />
                 STORAGE
               </TabsTrigger>
-              <TabsTrigger value="encryption" className="text-xs border border-border min-h-[2rem] w-[160px] flex items-center justify-center">
+              <TabsTrigger value="encryption" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
                 <Shield size={14} className="mr-1" />
                 ENCRYPTION
               </TabsTrigger>

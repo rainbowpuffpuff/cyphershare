@@ -1,7 +1,6 @@
 // components/codex/CodexDebugConsole.tsx
 import { useState, useEffect, useCallback } from "react";
 import {
-  Terminal,
   XCircle,
   Info,
   AlertCircle,
