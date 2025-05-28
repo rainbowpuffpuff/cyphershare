@@ -6,6 +6,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
+import { ConditionKind, ConditionArgs } from "@/types/taco";
 
 export interface EncryptionRequirementsResult {
   success: boolean;
@@ -13,8 +14,8 @@ export interface EncryptionRequirementsResult {
 }
 
 export interface FileEncryptionOptions {
-  accessConditionType?: "positive" | "time";
-  windowTimeSeconds?: string;
+  accessConditionType?: ConditionKind;
+  accessConditionArgs?: ConditionArgs;
 }
 
 export function useFileEncryption() {
@@ -95,8 +96,16 @@ export function useFileEncryption() {
       file: File,
       options: FileEncryptionOptions = {}
     ): Promise<{ encryptedFile: File | null; accessCondition?: string }> => {
-      const { accessConditionType = "positive", windowTimeSeconds = "60" } =
-        options;
+      const {
+        accessConditionType = "positive",
+        accessConditionArgs = {
+          windowTimeInSeconds: 60,
+          nftContractAddress: "",
+          minimumBalance: 1,
+          chainId: 1,
+          networkName: "testnet",
+        },
+      } = options;
 
       // Verify encryption requirements
       const requirements = checkEncryptionRequirements();
@@ -107,12 +116,9 @@ export function useFileEncryption() {
       try {
         // Get condition with description using the central helper
         console.log(`Creating ${accessConditionType} condition...`);
-        const timeSeconds = parseInt(windowTimeSeconds);
         const { condition: accessCond, description } = await createCondition(
           accessConditionType,
-          accessConditionType === "time"
-            ? { windowTimeInSeconds: timeSeconds }
-            : undefined
+          accessConditionArgs as any
         );
 
         // Ensure signer is available

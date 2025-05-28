@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
 import { cn } from "@/lib/utils";
+import { SUPPORTED_CHAIN_IDS } from "@/hooks/useTaco";
 
 type LogType = "info" | "error" | "success";
 
@@ -24,10 +25,10 @@ export default function TacoDebugConsole() {
     ritualId, 
     domain 
   } = useTacoContext();
+  const { networkInfo } = useWallet();
 
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState<DebugLog[]>([]);
-  const [networkInfo, setNetworkInfo] = useState<{ name: string; chainId: number } | null>(null);
 
   // Helper to add a log entry (keeps last 20)
   const addLog = useCallback((type: LogType, message: string) => {
@@ -73,29 +74,20 @@ export default function TacoDebugConsole() {
   useEffect(() => {
     const fetchNetwork = async () => {
       if (!provider) {
-        setNetworkInfo(null);
         return;
       }
 
       try {
-        const net = await provider.getNetwork();
-        if(net.name === "unknown") {
-          switch (net.chainId) {
-            case 137:
-              net.name = "Polygon";
-              break;
-            case 80002:
-              net.name = "Amoy (Polygon testnet)";
-              break;
-            case 11155111:
-              net.name = "Sepolia (Ethereum testnet)";
-              break;
-            default:
-              net.name = "unknown";
-          }
+        const network = await provider.getNetwork();
+
+        if (!SUPPORTED_CHAIN_IDS.includes(network.chainId)) {
+          const error = `Network not supported. Please connect to \
+            Amoy Polygon testnet (80002), Sepolia (11155111), Polygon (137) or Ethereum (1). \
+            Current network: ${network.name} (${network.chainId})`;
+          addLog("error", error);
+        } else {
+          addLog("info", `Network: ${network.name} (${network.chainId})`);
         }
-        setNetworkInfo({ name: net.name, chainId: net.chainId });
-        addLog("info", `Network: ${net.name} (${net.chainId})`);
       } catch (err) {
         console.error("Failed to get network:", err);
         addLog(
@@ -219,3 +211,4 @@ export default function TacoDebugConsole() {
     </div>
   );
 }
+
