@@ -9,6 +9,26 @@ interface WalletContextType {
   walletAddress: string;
   truncatedAddress: string;
   connectWallet: () => Promise<ethers.providers.Web3Provider | null>;
+  networkInfo: {
+    name: string;
+    chainId: number;
+  } | null;
+}
+
+export function fillNetworkName(network: { name: string; chainId: number }) {
+  if (network.name === "unknown") {
+    switch (network.chainId) {
+      case 137:
+        network.name = "Polygon";
+        break;
+      case 80002:
+        network.name = "Amoy (Polygon testnet)";
+        break;
+      case 11155111:
+        network.name = "Sepolia (Ethereum testnet)";
+        break;
+    }
+  }
 }
 
 // Create the context with a default value
@@ -19,6 +39,7 @@ const WalletContext = createContext<WalletContextType>({
   walletAddress: '',
   truncatedAddress: '',
   connectWallet: async () => null,
+  networkInfo: null,
 });
 
 // Custom hook to use the wallet context
@@ -40,6 +61,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [signer, setSigner] = useState<ethers.providers.JsonRpcSigner | null>(null);
   const [walletAddress, setWalletAddress] = useState('');
   const [truncatedAddress, setTruncatedAddress] = useState('');
+  const [networkInfo, setNetworkInfo] = useState<{
+    name: string;
+    chainId: number;
+  } | null>({ name: "Amoy (Polygon testnet)", chainId: 80002 });
 
   // Check if wallet is already connected on component mount
   useEffect(() => {
@@ -110,6 +135,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
               throw switchError;
             }
           }
+          const network = await provider.getNetwork();
+          fillNetworkName(network);
+          setNetworkInfo({ name: network.name, chainId: network.chainId });
         }
         
         setProvider(provider);
@@ -174,6 +202,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
     signer,
     walletAddress,
     truncatedAddress,
+    networkInfo,
     connectWallet,
   };
 

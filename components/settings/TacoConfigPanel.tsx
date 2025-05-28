@@ -8,6 +8,7 @@ import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { useWallet } from "@/context/WalletContext";
 import { useRef } from "react";
 import { Input } from "../ui/input";
+import { ConditionKind } from '@/types/taco';
 
 export default function TacoConfigPanel() {
   const {
@@ -17,11 +18,14 @@ export default function TacoConfigPanel() {
     setAccessConditionType,
     windowTimeSeconds,
     setWindowTimeSeconds,
+    nftContractAddress,
+    setNftContractAddress,
     isTacoInit,
   } = useTacoContext();
   const { walletConnected } = useWallet();
 
   const timeInputRef = useRef<HTMLDivElement>(null);
+  const nftContractAddressInputRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="space-y-4">
@@ -103,7 +107,7 @@ export default function TacoConfigPanel() {
             <div className="space-y-3 pl-4 border-l border-primary/10">
               <RadioGroup
                 value={accessConditionType}
-                onValueChange={(val) => setAccessConditionType(val as "time" | "positive")}
+                onValueChange={(val) => setAccessConditionType(val as ConditionKind)}
                 className="flex flex-col"
               >
                 <div className="flex items-center space-x-2">
@@ -116,6 +120,12 @@ export default function TacoConfigPanel() {
                   <RadioGroupItem value="time" id="time" />
                   <Label htmlFor="time" className="text-xs font-mono">
                     TIME_WINDOW
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="nft" id="nft" />
+                  <Label htmlFor="nft" className="text-xs font-mono">
+                    NFT_OWNERSHIP
                   </Label>
                 </div>
               </RadioGroup>
@@ -135,6 +145,14 @@ export default function TacoConfigPanel() {
                   <p className="text-xs text-muted-foreground font-mono">
                     Access limited to specified time window in seconds
                   </p>
+                </div>
+              )}
+
+            {accessConditionType === 'nft' && (
+                <div ref={nftContractAddressInputRef} className="space-y-1">
+                  <Label htmlFor="nft-contract-address" className="text-xs font-mono text-muted-foreground">NFT_CONTRACT_ADDRESS</Label>
+                  <Input id="nft-contract-address" placeholder="0x..." value={nftContractAddress} onChange={(e) => setNftContractAddress(e.target.value)} className="font-mono text-sm bg-card/70" />
+                  <p className="text-xs text-muted-foreground font-mono">Enter the ERC721 contract address on the Connected Network.</p>
                 </div>
               )}
             </div>

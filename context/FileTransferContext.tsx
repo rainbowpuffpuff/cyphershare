@@ -12,6 +12,7 @@ import React, {
   useImperativeHandle,
 } from "react";
 import { toast } from "sonner";
+import { useWallet } from "./WalletContext";
 import { useTacoContext } from "./TacoContext";
 import { useCodexContext } from "./CodexContext";
 import { useWakuContext } from "./WakuContext";
@@ -83,7 +84,11 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
     useEncryption,
     accessConditionType,
     windowTimeSeconds,
+    nftContractAddress,
+    minimumBalance,
   } = useTacoContext();
+
+  const { networkInfo } = useWallet();
 
   // Get Codex functionality from CodexContext
   const {
@@ -182,7 +187,11 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
           // Use the encryptFile hook function
           const encryptionResult = await encryptFile(file, {
             accessConditionType,
-            windowTimeSeconds
+            windowTimeSeconds,
+            nftContractAddress,
+            minimumBalance,
+            chainId: networkInfo?.chainId,
+            networkName: networkInfo?.name,
           });
           
           if (encryptionResult.encryptedFile) {
