@@ -6,8 +6,8 @@ import EncryptionBadge from "./EncryptionBadge";
 
 import { FileItem } from "@/types/files";
 
-interface Props {
-  item: FileItem;
+interface FileRowProps {
+  file: FileItem;
 }
 
 const getFileIcon = (type: string) => {
@@ -16,51 +16,51 @@ const getFileIcon = (type: string) => {
   return <File size={18} />;
 };
 
-export default function FileRow({ item }: Props) {
+export const FileRow = ({ file }: FileRowProps) => {
   const { copyFileCid, downloadFile, copySuccess } = useFileTransfer();
 
   return (
     <div className="flex items-center justify-between p-2 bg-muted rounded-md border border-border hover:bg-accent/40 transition-colors">
       <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
         <div className="p-1 rounded bg-card text-primary border border-border hover:border-primary/20 hover:bg-accent/50 transition-colors flex-shrink-0">
-          {getFileIcon(item.type)}
+          {getFileIcon(file.type)}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden font-medium text-sm font-mono truncate">
           <p className="truncate font-mono text-sm">
-            {item.name}
+            {file.name}
           </p>
           <p className="text-xs text-muted-foreground truncate font-mono">
-            {item.size.toFixed(2)} MB • {item.timestamp}
+            {file.size.toFixed(2)} MB • {file.timestamp}
           </p>
-          {item.fileId && (
-            <p className="text-xs text-primary/70 font-mono truncate" title={item.fileId}>
-              CID: {item.fileId.substring(0, 8)}...{item.fileId.substring(item.fileId.length - 6)}
+          {file.fileId && (
+            <p className="text-xs text-primary/70 font-mono truncate" title={file.fileId}>
+              CID: {file.fileId.substring(0, 8)}...{file.fileId.substring(file.fileId.length - 6)}
             </p>
           )}
-          {!item.fileId && (
+          {!file.fileId && (
             <p className="text-xs text-primary/70 font-mono truncate">
               CID: Not available
             </p>
           )}
-          {item.isEncrypted && <EncryptionBadge accessCondition={item.accessCondition} />}
+          {file.isEncrypted && <EncryptionBadge accessCondition={file.accessCondition} />}
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0 ml-2">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => copyFileCid(item.id.toString())}
+          onClick={() => copyFileCid(file.id.toString())}
           className="h-7 w-7 p-0"
-          disabled={!item.fileId}
+          disabled={!file.fileId}
         >
-          {copySuccess === item.id.toString() ? <span className="text-green-500">✓</span> : <Copy size={14} />}
+          {copySuccess === file.id.toString() ? <span className="text-green-500">✓</span> : <Copy size={14} />}
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => downloadFile(item.id.toString())}
+          onClick={() => downloadFile(file.id.toString())}
           className="h-7 w-7 p-0"
-          disabled={!item.fileId}
+          disabled={!file.fileId}
         >
           <Download size={14} />
         </Button>

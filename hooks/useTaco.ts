@@ -197,8 +197,8 @@ export default function useTaco({ ritualId, domain, provider }: UseTacoParams) {
    * Helpers to create common access conditions
    */
   const createConditions = {
-    positiveBalance: (chainId: number = 80002) => {
-      console.log("useTaco: Creating positive balance condition...");
+    positiveBalance: (chainId: number = 80002, minimumBalance: number = 1) => {
+      console.log(`useTaco: Creating positive balance condition with minimum balance: ${minimumBalance}...`);
       if (networkError && !isInit) {
         throw new Error(`Cannot create condition: ${networkError}`);
       }
@@ -207,8 +207,8 @@ export default function useTaco({ ritualId, domain, provider }: UseTacoParams) {
         method: "eth_getBalance",
         parameters: [":userAddress", "latest"],
         returnValueTest: {
-          comparator: ">",
-          value: 0,
+          comparator: ">=",
+          value: minimumBalance,
         },
       });
     },

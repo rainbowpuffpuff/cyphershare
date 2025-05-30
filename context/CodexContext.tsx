@@ -1,7 +1,7 @@
 // /context/CodexContext.tsx
 // Handles Codex file storage functionality
-import React, { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { useCodex, CodexEndpointType, CodexNodeInfo } from "@/hooks/useCodex";
+import React, { createContext, useContext, ReactNode, useEffect } from "react";
+import { useCodex, CodexEndpointType, CodexNodeInfo, CodexClient } from "@/hooks/useCodex";
 import { useSettings } from "./SettingsContext";
 import { toast } from "sonner";
 
@@ -28,7 +28,7 @@ interface CodexContextType {
   updateCodexConfig: (url: string, endpointType: CodexEndpointType) => void;
   checkCodexStatus: (forceCheck?: boolean) => Promise<boolean>;
   getNodeInfo: () => Promise<CodexNodeInfo | null>;
-  getCodexClient: () => any;
+  getCodexClient: () => CodexClient;
   
   // File operations
   uploadFile: (file: File, onProgress?: (progress: number) => void) => Promise<UploadResponse>;
@@ -61,7 +61,7 @@ export function CodexProvider({ children }: CodexProviderProps) {
     getCodexClient,
     uploadFile: codexUploadFile,
     downloadFile: codexDownloadFile,
-  } = useCodex(codexNodeUrl);
+  } = useCodex(codexNodeUrl, codexEndpointType);
 
   // Check Codex node status on mount
   useEffect(() => {

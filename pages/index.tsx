@@ -1,11 +1,12 @@
 // pages/index.tsx (lean entry)
 import MainLayout from "@/components/layout/MainLayout";
-import FileUpload from "@/components/files/FileUpload";
-import FileList from "@/components/files/FileList";
+import { FileUpload } from "@/components/files/FileUpload";
+import { FileList } from "@/components/files/FileList";
 import WakuDebugConsole from "@/components/debug-consoles/WakuDebugConsole";
 import CodexDebugConsole from "@/components/debug-consoles/CodexDebugConsole";
 import TacoDebugConsole from "@/components/debug-consoles/TacoDebugConsole";
-import NodeInfo from "@/components/codex/NodeInfo";
+// Uncomment if want to add this component into the index page
+// import NodeInfo from "@/components/codex/NodeInfo";
 import Head from "next/head";
 
 function Home() {

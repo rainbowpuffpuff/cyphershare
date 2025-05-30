@@ -10,17 +10,21 @@ import React, {
   ReactNode,
   forwardRef,
   useImperativeHandle,
+  ReactElement,
 } from "react";
 import { toast } from "sonner";
-import { useWallet } from "./WalletContext";
-import { useTacoContext } from "./TacoContext";
-import { useCodexContext } from "./CodexContext";
-import { useWakuContext } from "./WakuContext";
-import { WakuFileMessage } from "@/hooks/useWaku";
-import { useFileList } from "@/hooks/useFileList";
-import { useFileEncryption } from "@/hooks/useFileEncryption";
-import { prepareFileMetadata, copyToClipboard, downloadFileFromBlob } from "@/utils/fileUtils";
+
 import { FileItem } from "@/types/files";
+import { WakuFileMessage } from "@/hooks/useWaku";
+import { useFileEncryption } from "@/hooks/useFileEncryption";
+import { useFileList } from "@/hooks/useFileList";
+import { applyConditionDefaults } from "@/types/taco";
+import { prepareFileMetadata, copyToClipboard, downloadFileFromBlob } from "@/utils/fileUtils";
+
+import { useCodexContext } from "./CodexContext";
+import { useTacoContext } from "./TacoContext";
+import { useWallet } from "./WalletContext";
+import { useWakuContext } from "./WakuContext";
 
 //-----------------------------------------------------------------------------
 // Types 
@@ -32,15 +36,7 @@ interface FileTransferContextType {
   receivedFiles: FileItem[];
   uploadingFiles: Record<
     string,
-    {
-      progress: number;
-      name: string;
-      size: number;
-      type: string;
-      timestamp?: string;
-      isEncrypted?: boolean;
-      accessCondition?: string;
-    }
+    UploadProgress
   >;
   uploadError: string | null;
   copySuccess: string | null;
@@ -53,6 +49,16 @@ interface FileTransferContextType {
   wakuPeerCount: number;
   isWakuConnected: boolean;
   isWakuConnecting: boolean;
+}
+
+interface UploadProgress {
+  progress: number;
+  name: string;
+  size: number;
+  type: string;
+  timestamp?: string;
+  isEncrypted?: boolean;
+  accessCondition?: string;
 }
 
 const FileTransferContext = createContext<FileTransferContextType | null>(null);
@@ -74,16 +80,14 @@ interface Props {
   children: ReactNode;
 }
 
-export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ children }, ref) => {
+export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ children }, ref): ReactElement => {
 
   // Get TACo functionality from the TacoContext
   const {
     isTacoInit,
-    encryptDataToBytes,
-    decryptDataFromBytes,
     useEncryption,
     accessConditionType,
-    windowTimeSeconds,
+    windowTimeInSeconds,
     nftContractAddress,
     minimumBalance,
   } = useTacoContext();
@@ -106,15 +110,13 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   } = useWakuContext();
 
   const { 
-    encryptFile, 
-    decryptBlob, 
-    checkEncryptionRequirements, 
-    error: encryptionError, 
-    setError: setEncryptionError 
-  } = useFileEncryption();
+    encryptFile,
+    decryptBlob,
+    checkEncryptionRequirements,
+   } = useFileEncryption();
   // State for file management
   const { sentFiles, receivedFiles, addSentFile, addReceivedFile, findFileById } = useFileList();
-  const [uploadingFiles, setUploadingFiles] = useState<Record<string, any>>({});
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, UploadProgress>>({});
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
@@ -122,7 +124,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   // Expose handleFileReceived to the WakuProvider via ref
   //-----------------------------------------------------------------------------
   const handleFileReceived = useCallback(
-  (fileMessage: WakuFileMessage) => {
+  (fileMessage: WakuFileMessage): void => {
     const ourSenderId = sessionStorage.getItem("wakuSenderId");
     const isSentByUs = ourSenderId && fileMessage.sender === ourSenderId;
     if (isSentByUs) {
@@ -145,6 +147,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   },
   [addReceivedFile]
 );
+FileTransferProvider.displayName = "FileTransferProvider";
   
   // Expose the handleFileReceived function to parent components via ref
   useImperativeHandle(ref, () => ({
@@ -154,7 +157,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   // Send files (drop handler extracted)
   //-----------------------------------------------------------------------------
   const sendFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[]): Promise<void> => {
       if (!isCodexNodeActive) {
         setUploadError("Codex node is not active");
         toast.error("Codex node is not active. Cannot upload files.");
@@ -187,20 +190,29 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
           // Use the encryptFile hook function
           const encryptionResult = await encryptFile(file, {
             accessConditionType,
-            windowTimeSeconds,
-            nftContractAddress,
-            minimumBalance,
-            chainId: networkInfo?.chainId,
-            networkName: networkInfo?.name,
+            accessConditionArgs: applyConditionDefaults({
+              positive: {
+                minimumBalance,
+              },
+              time: {
+                windowTimeInSeconds: Number(windowTimeInSeconds),
+              },
+              nft: {
+                nftContractAddress,
+                minimumBalance,
+                chainId: Number(networkInfo?.chainId),
+                networkName: networkInfo?.name,
+              },
+            }),
           });
-          
+  
           if (encryptionResult.encryptedFile) {
             uploadFileObj = encryptionResult.encryptedFile;
             encrypted = true;
             accessCondition = encryptionResult.accessCondition;
           } else {
             // Encryption failed, show error
-            setUploadError("Encryption failed");
+            setUploadError("Encryption failed! " + encryptionResult.error?.message);
             continue;
           }
         }
@@ -244,6 +256,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
           setUploadError("Upload failed: " + (err instanceof Error ? err.message : ""));
         } finally {
           setUploadingFiles((prev) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [fileId]: _removed, ...rest } = prev;
             return rest;
           });
@@ -255,7 +268,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
       useEncryption,
       checkEncryptionRequirements,
       accessConditionType,
-      windowTimeSeconds,
+      windowTimeInSeconds,
       encryptFile,
       codexUploadFile,
       addSentFile,
@@ -266,7 +279,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   //-----------------------------------------------------------------------------
   // Copy & Download helpers (simplified)
   //-----------------------------------------------------------------------------
-  const copyFileCid = useCallback(async (fid: string) => {
+  const copyFileCid = useCallback(async (fid: string): Promise<void> => {
     const file = findFileById(fid);
     if (!file || !file.fileId) return;
     
@@ -284,7 +297,7 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
   }, [findFileById]);
 
   const downloadFile = useCallback(
-    async (fid: string) => {
+    async (fid: string): Promise<void> => {
       console.log(`Starting download for file ID: ${fid}`);
       const file = findFileById(fid);
       if (!file || !file.fileId) {
@@ -311,38 +324,36 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
           return;
         }
   
+        let fileBlob: Blob | null = null;
         // Handle encrypted files with our new hook
         if (file.isEncrypted) {
           console.log(`Processing encrypted file with condition: ${file.accessCondition}`);
           
           setCopySuccess(`Decrypting ${file.name}...`);
           
-          const decryptResult = await decryptBlob(
-            res.data as Blob, 
-            file.type, 
-            file.accessCondition
-          );
-          
-          if (!decryptResult.decryptedBlob) {
-            setUploadError(decryptResult.error || "Decryption failed");
+          const result = await decryptBlob(res.data as Blob, {
+            fileType: file.type,
+            accessCondition: file.accessCondition,
+          });
+          if (result.decryptedBlob) {
+            fileBlob = result.decryptedBlob;
+          } else {
+            setUploadError(result.error?.message || "Decryption failed");
             setCopySuccess(null);
             return;
           }
-          
-          // Download the decrypted blob
-          downloadFileFromBlob(decryptResult.decryptedBlob, file.name);
         } else {
           // Download regular file
-          downloadFileFromBlob(res.data as Blob, file.name);
+          fileBlob = res.data as Blob;
         }
         
+        downloadFileFromBlob(fileBlob!, file.name);
         setCopySuccess(`Downloaded ${file.name} successfully`);
         setTimeout(() => setCopySuccess(null), 3000);
         console.log(`Download complete for ${file.name}`);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Unknown download error";
-        console.error(`Download error:`, errorMsg);
-        setUploadError(errorMsg);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown download error";
+        setUploadError(errorMessage);
         setCopySuccess(null);
       }
     },
@@ -376,3 +387,4 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
     <FileTransferContext.Provider value={ctxValue}>{children}</FileTransferContext.Provider>
   );
 });
+

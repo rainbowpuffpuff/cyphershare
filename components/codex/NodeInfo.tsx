@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Server } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSettings } from "@/context/SettingsContext";
-import axios from 'axios';
 import { getNodeInfo } from "@/hooks/useCodex";
 
 // Define the node info type
@@ -35,7 +34,7 @@ export default function NodeInfo() {
         setNodeInfo(info);
       } catch (err) {
         console.error("Failed to fetch node info:", err);
-        let errorMessage = "Failed to fetch node info";
+        const errorMessage = "Failed to fetch node info";
         setError(errorMessage);
         setNodeInfo(null);
       } finally {

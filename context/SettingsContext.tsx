@@ -21,7 +21,7 @@ const defaultSettings: Settings = {
 
 const SettingsContext = createContext<SettingsContextType>({
   ...defaultSettings,
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+   
   updateSettings: () => {},
 });
 
