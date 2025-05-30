@@ -8,7 +8,7 @@
  * 4. React hook for component integration
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
 //-----------------------------------------------------------------------------
 // TYPE DEFINITIONS
@@ -28,7 +28,7 @@ interface CodexApiResponse<T> {
   error?: string;
 }
 
-export type CodexEndpointType = 'remote' | 'local';
+export type CodexEndpointType = "remote" | "local";
 
 type CodexHeaders = Record<string, string>;
 
@@ -57,43 +57,43 @@ export class CodexClient {
   private authHeaders?: CodexHeaders;
 
   constructor(
-    baseUrl: string = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || '',
-    endpointType: CodexEndpointType = 'remote'
+    baseUrl: string = process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "",
+    endpointType: CodexEndpointType = "remote"
   ) {
     // Validate and format the base URL
     if (!baseUrl) {
       console.error(
-        'No base URL provided and NEXT_PUBLIC_CODEX_REMOTE_API_URL environment variable is not set'
+        "No base URL provided and NEXT_PUBLIC_CODEX_REMOTE_API_URL environment variable is not set"
       );
-      baseUrl = ''; // Set empty string to allow initialization, but client won't work
+      baseUrl = ""; // Set empty string to allow initialization, but client won't work
     }
 
     // For remote endpoint, use our proxy API
-    if (endpointType === 'remote') {
-      baseUrl = '/api/codex';
+    if (endpointType === "remote") {
+      baseUrl = "/api/codex";
     }
 
     this.baseUrl = baseUrl;
     this.endpointType = endpointType;
     // Log configuration on initialization
-    console.log('=== CODEX CLIENT CONFIGURATION ===');
-    console.log('Endpoint Type:', endpointType);
-    console.log('Base URL:', baseUrl);
-    console.log('Environment Variables:', {
+    console.log("=== CODEX CLIENT CONFIGURATION ===");
+    console.log("Endpoint Type:", endpointType);
+    console.log("Base URL:", baseUrl);
+    console.log("Environment Variables:", {
       NEXT_PUBLIC_CODEX_REMOTE_API_URL:
-        process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || 'not set',
+        process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "not set",
       NEXT_PUBLIC_CODEX_LOCAL_API_URL:
-        process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || 'not set',
+        process.env.NEXT_PUBLIC_CODEX_LOCAL_API_URL || "not set",
       NEXT_PUBLIC_CODEX_REMOTE_API_USERNAME: process.env
         .NEXT_PUBLIC_CODEX_REMOTE_API_USERNAME
-        ? '✓ set'
-        : '✗ not set',
+        ? "✓ set"
+        : "✗ not set",
       NEXT_PUBLIC_CODEX_REMOTE_API_PASSWORD: process.env
         .NEXT_PUBLIC_CODEX_REMOTE_API_PASSWORD
-        ? '✓ set'
-        : '✗ not set',
+        ? "✓ set"
+        : "✗ not set",
     });
-    console.log('================================');
+    console.log("================================");
 
     this.updateAuthHeaders();
   }
@@ -102,30 +102,30 @@ export class CodexClient {
    * Update the configuration for the Codex API
    */
   public updateConfig(newUrl: string, endpointType: CodexEndpointType): void {
-    console.log('=== UPDATING CODEX CONFIGURATION ===');
-    console.log('Previous Config:', {
+    console.log("=== UPDATING CODEX CONFIGURATION ===");
+    console.log("Previous Config:", {
       baseUrl: this.baseUrl,
       endpointType: this.endpointType,
     });
 
     // For remote endpoint, use our proxy API
-    if (endpointType === 'remote') {
-      newUrl = '/api/codex';
+    if (endpointType === "remote") {
+      newUrl = "/api/codex";
     }
-    
-    console.log('New Config:', {
+
+    console.log("New Config:", {
       baseUrl: newUrl,
       endpointType: endpointType,
     });
-    
+
     this.baseUrl = newUrl;
     this.endpointType = endpointType;
     this.updateAuthHeaders();
     this.isActive = false;
     this.lastChecked = 0;
-    
-    console.log('Configuration updated successfully');
-    console.log('=================================');
+
+    console.log("Configuration updated successfully");
+    console.log("=================================");
   }
 
   /**
@@ -156,17 +156,17 @@ export class CodexClient {
   private getFetchOptions(options: RequestInit = {}): RequestInit {
     const baseOptions: RequestInit = {
       ...options,
-      mode: 'cors',
+      mode: "cors",
       headers: {
-        Accept: 'application/json',
+        Accept: "application/json",
         ...(options.headers || {}),
         ...(this.authHeaders || {}),
       },
     };
 
     // Only include credentials for remote endpoints
-    if (this.endpointType === 'remote') {
-      baseOptions.credentials = 'include';
+    if (this.endpointType === "remote") {
+      baseOptions.credentials = "include";
     }
 
     return baseOptions;
@@ -179,48 +179,48 @@ export class CodexClient {
    */
   public async isNodeActive(forceCheck: boolean = false): Promise<boolean> {
     const now = Date.now();
-    
+
     // Return cached result if it's recent enough and not forcing a check
     if (!forceCheck && now - this.lastChecked < this.checkInterval) {
       return this.isActive;
     }
-    
+
     try {
       // Create an AbortController with timeout for browsers that don't support AbortSignal.timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
+
       const url = `${this.baseUrl}/v1/debug/info`;
-      console.log('=== CHECKING CODEX NODE STATUS ===');
-      console.log('URL:', url);
-      console.log('Endpoint Type:', this.endpointType);
-      
+      console.log("=== CHECKING CODEX NODE STATUS ===");
+      console.log("URL:", url);
+      console.log("Endpoint Type:", this.endpointType);
+
       const response = await fetch(
         url,
         this.getFetchOptions({
-          method: 'GET',
+          method: "GET",
           signal: controller.signal,
         })
       );
 
       clearTimeout(timeoutId);
-      
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-      
+
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+
       if (!response.ok) {
         const text = await response.text();
-        console.log('Error response:', text);
+        console.log("Error response:", text);
       }
-      
+
       this.isActive = response.ok;
       this.lastChecked = now;
-      console.log('Node active:', this.isActive);
-      console.log('===============================');
+      console.log("Node active:", this.isActive);
+      console.log("===============================");
       return this.isActive;
     } catch (error) {
       console.error(
-        'Error checking node status:',
+        "Error checking node status:",
         error instanceof Error ? error.message : String(error)
       );
       this.isActive = false;
@@ -242,7 +242,7 @@ export class CodexClient {
       const response = await fetch(
         `${this.baseUrl}/v1/debug/info`,
         this.getFetchOptions({
-          method: 'GET',
+          method: "GET",
           signal: controller.signal,
         })
       );
@@ -256,9 +256,9 @@ export class CodexClient {
       const data = await response.json();
       return data as CodexNodeInfo;
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(
-          'Could not fetch Codex node info:',
+          "Could not fetch Codex node info:",
           error instanceof Error ? error.message : String(error)
         );
       }
@@ -275,22 +275,22 @@ export class CodexClient {
    */
   public async makeRequest<T>(
     endpoint: string,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
     body?: unknown
   ): Promise<CodexApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${
-        endpoint.startsWith('/') ? endpoint : '/' + endpoint
+        endpoint.startsWith("/") ? endpoint : "/" + endpoint
       }`;
 
       const options = this.getFetchOptions({
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
-      if (body && (method === 'POST' || method === 'PUT')) {
+      if (body && (method === "POST" || method === "PUT")) {
         options.body = JSON.stringify(body);
       }
 
@@ -308,7 +308,7 @@ export class CodexClient {
         try {
           data = await response.json();
         } catch {
-          data = { error: 'Invalid response format' };
+          data = { error: "Invalid response format" };
         }
 
         return {
@@ -323,28 +323,28 @@ export class CodexClient {
         throw fetchError;
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === "AbortError") {
         return {
           success: false,
-          error: 'Request timed out. The Codex node might be unresponsive.',
+          error: "Request timed out. The Codex node might be unresponsive.",
         };
       }
 
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
         return {
           success: false,
-          error: 'Cannot connect to Codex node. Please check if it is running.',
+          error: "Cannot connect to Codex node. Please check if it is running.",
         };
       }
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error making request:', error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Error making request:", error);
       }
 
       return {
         success: false,
         error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+          error instanceof Error ? error.message : "Unknown error occurred",
       };
     }
   }
@@ -367,7 +367,7 @@ export class CodexClient {
 
         // Set up progress tracking
         if (onProgress) {
-          xhr.upload.addEventListener('progress', (event) => {
+          xhr.upload.addEventListener("progress", (event) => {
             if (event.lengthComputable) {
               const percentComplete = Math.round(
                 (event.loaded / event.total) * 100
@@ -377,10 +377,10 @@ export class CodexClient {
           });
         }
 
-        xhr.open('POST', url, true);
-        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader("Content-Type", file.type);
         xhr.setRequestHeader(
-          'Content-Disposition',
+          "Content-Disposition",
           `attachment; filename='${file.name}'`
         );
 
@@ -393,11 +393,11 @@ export class CodexClient {
 
         xhr.onload = function () {
           // Log the raw response text first, before any parsing
-          console.log('=== RAW CODEX UPLOAD RESPONSE ===');
-          console.log('Status:', xhr.status);
-          console.log('Response Text:', xhr.responseText);
-          console.log('Response Headers:', xhr.getAllResponseHeaders());
-          console.log('===============================');
+          console.log("=== RAW CODEX UPLOAD RESPONSE ===");
+          console.log("Status:", xhr.status);
+          console.log("Response Text:", xhr.responseText);
+          console.log("Response Headers:", xhr.getAllResponseHeaders());
+          console.log("===============================");
 
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
@@ -405,16 +405,16 @@ export class CodexClient {
               let response;
               try {
                 response = JSON.parse(xhr.responseText);
-                console.log('Parsed JSON response:', response);
+                console.log("Parsed JSON response:", response);
               } catch {
                 // Response is not JSON, using raw text
-                console.log('Response is not JSON, using raw text');
+                console.log("Response is not JSON, using raw text");
                 response = xhr.responseText.trim();
               }
 
               // Extract the CID from the response
               const cid =
-                typeof response === 'object'
+                typeof response === "object"
                   ? response.id ||
                     response.cid ||
                     (response.data && (response.data.id || response.data.cid))
@@ -422,17 +422,17 @@ export class CodexClient {
 
               if (!cid) {
                 console.warn(
-                  'No CID found in Codex upload response:',
+                  "No CID found in Codex upload response:",
                   response
                 );
                 // Try to extract CID from raw response if it's just a string
                 const rawResponse = xhr.responseText.trim();
                 if (
                   rawResponse &&
-                  !rawResponse.includes('{') &&
-                  !rawResponse.includes('[')
+                  !rawResponse.includes("{") &&
+                  !rawResponse.includes("[")
                 ) {
-                  console.log('Using raw response as CID:', rawResponse);
+                  console.log("Using raw response as CID:", rawResponse);
                   resolve({
                     success: true,
                     id: rawResponse,
@@ -441,20 +441,20 @@ export class CodexClient {
                 }
               } else {
                 console.log(
-                  '%c File uploaded successfully! CID: ' + cid,
-                  'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
+                  "%c File uploaded successfully! CID: " + cid,
+                  "background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;"
                 );
               }
-              
+
               resolve({
                 success: true,
                 id: cid,
               });
             } catch {
               // If response is not JSON but status is success
-              console.warn('Failed to parse Codex upload response');
-              console.log('Raw response text:', xhr.responseText);
-              
+              console.warn("Failed to parse Codex upload response");
+              console.log("Raw response text:", xhr.responseText);
+
               // If the response is a plain string, it might be the CID directly
               const rawText = xhr.responseText.trim();
               resolve({
@@ -463,26 +463,26 @@ export class CodexClient {
               });
             }
           } else {
-            console.error('Upload failed with status:', xhr.status);
-            let errorMessage = 'Upload failed';
+            console.error("Upload failed with status:", xhr.status);
+            let errorMessage = "Upload failed";
             try {
               const errorResponse = JSON.parse(xhr.responseText);
               errorMessage = errorResponse.error || errorMessage;
-              console.error('Error response:', errorResponse);
+              console.error("Error response:", errorResponse);
             } catch {
               // If error response is not JSON
               errorMessage = `Upload failed with status ${xhr.status}: ${xhr.responseText}`;
-              console.error('Error response (not JSON):', xhr.responseText);
+              console.error("Error response (not JSON):", xhr.responseText);
             }
             resolve({ success: false, error: errorMessage });
           }
         };
 
         xhr.onerror = function () {
-          console.error('Network error during upload');
+          console.error("Network error during upload");
           resolve({
             success: false,
-            error: 'Network error occurred during upload',
+            error: "Network error occurred during upload",
           });
         };
 
@@ -490,30 +490,30 @@ export class CodexClient {
       });
     } catch (error) {
       // Handle network errors more gracefully
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === "AbortError") {
         return {
           success: false,
-          error: 'Request timed out. The Codex node might be unresponsive.',
+          error: "Request timed out. The Codex node might be unresponsive.",
         };
       }
-      
+
       // For network errors (like when node is not running)
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
         return {
           success: false,
-          error: 'Cannot connect to Codex node. Please check if it is running.',
+          error: "Cannot connect to Codex node. Please check if it is running.",
         };
       }
-      
+
       // For other errors
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error uploading file:', error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Error uploading file:", error);
       }
-      
+
       return {
         success: false,
         error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+          error instanceof Error ? error.message : "Unknown error occurred",
       };
     }
   }
@@ -532,42 +532,42 @@ export class CodexClient {
       // Create a test file with timestamp to ensure uniqueness
       const timestamp = new Date().toISOString();
       const testContent = `This is a test file created at ${timestamp}`;
-      const blob = new Blob([testContent], { type: 'text/plain' });
+      const blob = new Blob([testContent], { type: "text/plain" });
       const fileName = `test-file-${Date.now()}.txt`;
 
-      console.log('Uploading test file directly to Codex API...');
+      console.log("Uploading test file directly to Codex API...");
       console.log(`URL: ${this.baseUrl}/v1/data`);
       console.log(`File: ${fileName}`);
 
       const response = await fetch(`${this.baseUrl}/v1/data`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'text/plain',
-          'Content-Disposition': `attachment; filename='${fileName}'`,
+          "Content-Type": "text/plain",
+          "Content-Disposition": `attachment; filename='${fileName}'`,
           ...(this.authHeaders || {}),
         },
-        mode: 'cors',
-        credentials: 'include',
+        mode: "cors",
+        credentials: "include",
         body: blob,
       });
-      
-      console.log('========== DIRECT UPLOAD RESPONSE ==========');
-      console.log('Status:', response.status);
-      console.log('Status Text:', response.statusText);
-      console.log('Headers:');
+
+      console.log("========== DIRECT UPLOAD RESPONSE ==========");
+      console.log("Status:", response.status);
+      console.log("Status Text:", response.statusText);
+      console.log("Headers:");
       response.headers.forEach((value, key) => {
         console.log(`  ${key}: ${value}`);
       });
 
       // Try to get the response as text first
       const responseText = await response.text();
-      console.log('Response Text:', responseText);
-      console.log('===========================================');
+      console.log("Response Text:", responseText);
+      console.log("===========================================");
 
       // Try to parse as JSON if possible
       try {
         const jsonResponse = JSON.parse(responseText);
-        console.log('Parsed JSON response:', jsonResponse);
+        console.log("Parsed JSON response:", jsonResponse);
 
         // Extract CID
         const cid =
@@ -578,8 +578,8 @@ export class CodexClient {
 
         if (cid) {
           console.log(
-            '%c Direct upload CID: ' + cid,
-            'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
+            "%c Direct upload CID: " + cid,
+            "background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;"
           );
           return {
             success: true,
@@ -589,15 +589,15 @@ export class CodexClient {
         }
         return {
           success: true,
-          id: 'unknown-id',
-          message: 'Upload successful but no CID found',
+          id: "unknown-id",
+          message: "Upload successful but no CID found",
         };
       } catch {
         // If not JSON, the response text might be the CID directly
         if (responseText && response.ok) {
           console.log(
-            '%c Direct upload CID (from text): ' + responseText.trim(),
-            'background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
+            "%c Direct upload CID (from text): " + responseText.trim(),
+            "background: #222; color: #bada55; padding: 4px 8px; border-radius: 4px; font-weight: bold;"
           );
           return {
             success: true,
@@ -610,7 +610,7 @@ export class CodexClient {
         if (response.ok) {
           return {
             success: true,
-            message: 'Upload successful but response format is unexpected',
+            message: "Upload successful but response format is unexpected",
           };
         }
 
@@ -621,7 +621,7 @@ export class CodexClient {
         };
       }
     } catch (error) {
-      console.error('Error in direct upload test:', error);
+      console.error("Error in direct upload test:", error);
       return {
         success: false,
         error: `Direct upload test failed: ${
@@ -644,14 +644,14 @@ export class CodexClient {
       console.log(`Fetching metadata from: ${metadataUrl}`);
 
       const response = await fetch(metadataUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
           ...(this.authHeaders || {}),
         },
-        mode: 'cors',
-        credentials: 'include',
+        mode: "cors",
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -661,8 +661,8 @@ export class CodexClient {
       const data = await response.json();
       return { success: true, metadata: data };
     } catch (error) {
-      console.error('Error fetching file metadata:', error);
-      let errorMessage = 'Failed to fetch file metadata';
+      console.error("Error fetching file metadata:", error);
+      let errorMessage = "Failed to fetch file metadata";
 
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
@@ -692,14 +692,14 @@ export class CodexClient {
       if (!metadataResult.success || !metadataResult.metadata) {
         return {
           success: false,
-          error: metadataResult.error || 'Failed to fetch file metadata',
+          error: metadataResult.error || "Failed to fetch file metadata",
         };
       }
 
       const { manifest } = metadataResult.metadata;
       const { filename, mimetype } = manifest;
 
-      console.log('File metadata:', {
+      console.log("File metadata:", {
         filename,
         mimetype,
         manifest,
@@ -710,13 +710,13 @@ export class CodexClient {
       console.log(`Downloading file from: ${downloadUrl}`);
 
       const response = await fetch(downloadUrl, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          Accept: '*/*',
+          Accept: "*/*",
           ...(this.authHeaders || {}),
         },
-        mode: 'cors',
-        credentials: 'include',
+        mode: "cors",
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -734,8 +734,8 @@ export class CodexClient {
         },
       };
     } catch (error) {
-      console.error('Error downloading file:', error);
-      let errorMessage = 'Failed to download file';
+      console.error("Error downloading file:", error);
+      let errorMessage = "Failed to download file";
 
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
@@ -790,12 +790,17 @@ export async function getNodeInfo(): Promise<CodexNodeInfo | null> {
 /**
  * React hook for using the Codex client in components
  */
-export function useCodex(initialUrl?: string) {
-  const [client] = useState<CodexClient>(() => getCodexClient(initialUrl));
+export function useCodex(
+  initialUrl?: string,
+  initialEndpointType?: CodexEndpointType
+) {
+  const [client] = useState<CodexClient>(() =>
+    getCodexClient(initialUrl, initialEndpointType)
+  );
   const [isNodeActive, setIsNodeActive] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [endpointType, setEndpointType] = useState<CodexEndpointType>('remote');
+  const [endpointType, setEndpointType] = useState<CodexEndpointType>("remote");
 
   // Check node status
   const checkNodeStatus = useCallback(
@@ -810,13 +815,13 @@ export function useCodex(initialUrl?: string) {
         setError(null);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to check node status'
+          err instanceof Error ? err.message : "Failed to check node status"
         );
         setIsNodeActive(false);
       } finally {
         setIsLoading(false);
       }
-      
+
       return isActive;
     },
     [client]
@@ -827,8 +832,10 @@ export function useCodex(initialUrl?: string) {
     (newUrl: string, endpointType: CodexEndpointType): void => {
       try {
         // Allow proxy paths (starting with /) or full URLs
-        if (!newUrl.startsWith('/') && !newUrl.startsWith('http')) {
-          throw new Error('URL must start with \'/  \' or \'http://\' or \'https://\'');
+        if (!newUrl.startsWith("/") && !newUrl.startsWith("http")) {
+          throw new Error(
+            "URL must start with '/  ' or 'http://' or 'https://'"
+          );
         }
 
         client.updateConfig(newUrl, endpointType);

@@ -11,7 +11,7 @@ import { useWallet } from "./WalletContext";
 import useTaco from "@/hooks/useTaco";
 import { domains, conditions } from "@nucypher/taco";
 import { ethers } from "ethers";
-import { ConditionKind, ConditionArgs } from '../types/taco';
+import { ConditionKind, ConditionArgs } from "@/types/taco";
 
 //-----------------------------------------------------------------------------
 // Types
@@ -39,7 +39,7 @@ interface TacoContextType {
   setUseEncryption: (val: boolean) => void;
   accessConditionType: ConditionKind;
   setAccessConditionType: (val: ConditionKind) => void;
-  windowTimeSeconds: string;
+  windowTimeInSeconds: string;
   setWindowTimeSeconds: (val: string) => void;
   nftContractAddress: string;
   setNftContractAddress: (val: string) => void;
@@ -94,7 +94,7 @@ export function TacoProvider({ children }: Props) {
   // Encryption settings
   const [useEncryption, setUseEncryption] = useState(false);
   const [accessConditionType, setAccessConditionType] = useState<ConditionKind>("positive");
-  const [windowTimeSeconds, setWindowTimeSeconds] = useState("60");
+  const [windowTimeInSeconds, setWindowTimeSeconds] = useState("60");
   const [nftContractAddress, setNftContractAddress] = useState("");
   const [minimumBalance, setMinimumBalance] = useState(1);
 
@@ -112,9 +112,9 @@ export function TacoProvider({ children }: Props) {
   });
 
   // Helper to create a positive balance condition
-  const createPositiveBalanceCondition = useCallback(() => {
+  const createPositiveBalanceCondition = useCallback((minBalance: number = 1) => {
     if (networkError) throw new Error(networkError);
-    return createConditions.positiveBalance();
+    return createConditions.positiveBalance(undefined, minBalance);
   }, [createConditions, networkError]);
 
   // Helper to create a time window condition
@@ -127,7 +127,7 @@ export function TacoProvider({ children }: Props) {
   );
 
   // Helper to create a time window condition
-  const isNftOwnerCondition = useCallback(
+  const createIsNftOwnerCondition = useCallback(
     async (nftContractAddress: string, minimumBalance: number, chainId: number) => {
       if (networkError) throw new Error(networkError);
       return await createConditions.isNFTOwner(nftContractAddress, minimumBalance, chainId);
@@ -140,34 +140,35 @@ export function TacoProvider({ children }: Props) {
     async <T extends ConditionKind>(
       type: T,
       ...[params]: ConditionArgs[T] extends undefined
-        ? []                          // "positive" ⇒ no second argument
+        ? []                          // "positive" can now have an optional parameter
         : [ConditionArgs[T]]          // "time" | "nft" ⇒ exactly one object
     ) => {
       if (type === "positive") {
-        const condition   = createPositiveBalanceCondition();
-        const description =
-          "The account needs to have a positive balance to decrypt this file";
+        const condition = createPositiveBalanceCondition(Number(minimumBalance));
+        const description = 
+          `The account needs to have a minimum network-native token balance of '${minimumBalance}' to decrypt this file`;
         return { condition, description, type } as const;
       }
 
       if (type === "time") {
-        const { windowTimeInSeconds = 60 } = params! as ConditionArgs["time"];
-        const condition   = await createTimeWindowCondition(windowTimeInSeconds);
+        const { windowTimeInSeconds } = params as ConditionArgs["time"];
+        // Ensure windowTimeInSeconds is always a number
+        const condition   = await createTimeWindowCondition(Number(windowTimeInSeconds));
         const description = `Accessible only within ${windowTimeInSeconds} seconds of ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
         return { condition, description, type } as const;
       }
 
       if (type === "nft") {
-        const { nftContractAddress, minimumBalance, chainId, networkName } = params! as ConditionArgs["nft"];
+        const { nftContractAddress, minimumBalance, chainId, networkName } = params as ConditionArgs["nft"];
         if (!ethers.utils.isAddress(nftContractAddress)) {
           throw new Error(
             `Please enter a valid ERC721 contract address for the NFT condition. ${nftContractAddress}`
           );
         }
-        const condition = await isNftOwnerCondition(
+        const condition = await createIsNftOwnerCondition(
           nftContractAddress,
-          minimumBalance,
-          chainId
+          Number(minimumBalance), // Defaults already applied
+          Number(chainId) // Defaults already applied
         );
         const description = `Requires ownership of an NFT from contract ${
             nftContractAddress.substring(0,6)
@@ -179,7 +180,7 @@ export function TacoProvider({ children }: Props) {
 
       throw new Error("Invalid access-condition type");
     },
-    [createPositiveBalanceCondition, createTimeWindowCondition, isNftOwnerCondition]
+    [createPositiveBalanceCondition, createTimeWindowCondition, createIsNftOwnerCondition]
   );
 
 
@@ -202,7 +203,7 @@ export function TacoProvider({ children }: Props) {
     setUseEncryption,
     accessConditionType,
     setAccessConditionType,
-    windowTimeSeconds,
+    windowTimeInSeconds,
     setWindowTimeSeconds,
     nftContractAddress,
     setNftContractAddress,

@@ -6,20 +6,35 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
-import { ConditionKind, ConditionArgs } from "@/types/taco";
+import {
+  ConditionKind,
+  ConditionArgs,
+  applyConditionDefaults,
+} from "@/types/taco";
 
-export interface EncryptionRequirementsResult {
-  success: boolean;
-  reason?: "wallet-disconnected" | "no-signer" | "taco-not-initialized";
+export interface EncryptionResult {
+  encryptedFile: File | null;
+  accessCondition?: string;
+  error?: Error;
 }
 
-export interface FileEncryptionOptions {
+export interface DecryptionResult {
+  decryptedBlob: Blob | null;
+  error?: Error;
+}
+
+interface EncryptOptions {
   accessConditionType?: ConditionKind;
   accessConditionArgs?: ConditionArgs;
 }
 
-export function useFileEncryption() {
-  const [error, setError] = useState<string | null>(null);
+interface DecryptOptions {
+  fileType?: string;
+  accessCondition?: string;
+}
+
+export const useFileEncryption = () => {
+  const [error, setError] = useState<Error | null>(null);
 
   const { signer, walletConnected } = useWallet();
   const {
@@ -30,87 +45,53 @@ export function useFileEncryption() {
   } = useTacoContext();
 
   // Check if encryption requirements are met
-  const checkEncryptionRequirements =
-    useCallback((): EncryptionRequirementsResult => {
-      if (!walletConnected) {
-        toast.error(
-          "Encryption requested, but wallet is not connected. Please connect your wallet."
-        );
-        setError("Wallet not connected for encryption.");
-        return { success: false, reason: "wallet-disconnected" };
-      }
+  const checkEncryptionRequirements = useCallback((): {
+    success: boolean;
+    reason?: string;
+  } => {
+    if (!walletConnected) {
+      toast.error(
+        "Encryption requested, but wallet is not connected. Please connect your wallet."
+      );
+      setError(new Error("Wallet not connected for encryption."));
+      return { success: false, reason: "wallet-disconnected" };
+    }
 
-      if (!signer) {
-        toast.error(
-          "Encryption requested, but wallet signer is not available. Please reconnect your wallet."
-        );
-        setError("Wallet signer not available for encryption.");
-        return { success: false, reason: "no-signer" };
-      }
+    if (!signer) {
+      toast.error(
+        "Encryption requested, but wallet signer is not available. Please reconnect your wallet."
+      );
+      setError(new Error("Wallet signer not available for encryption."));
+      return { success: false, reason: "wallet-signer-not-available" };
+    }
 
-      if (!isTacoInit) {
-        toast.error(
-          "Encryption service (TACo) is not ready. Please try again in a moment."
-        );
-        setError("Encryption service not ready.");
-        return { success: false, reason: "taco-not-initialized" };
-      }
+    if (!isTacoInit) {
+      toast.error(
+        "Encryption service (TACo) is not ready. Please try again in a moment."
+      );
+      setError(new Error("Encryption service not ready."));
+      return { success: false, reason: "taco-not-initialized" };
+    }
 
-      return { success: true };
-    }, [walletConnected, signer, isTacoInit]);
-
-  // Check if decryption requirements are met (similar to encryption)
-  const checkDecryptionRequirements =
-    useCallback((): EncryptionRequirementsResult => {
-      if (!walletConnected) {
-        setError("Wallet not connected – connect wallet to decrypt");
-        toast.error("Wallet not connected", {
-          description: "Please connect your wallet to decrypt this file.",
-        });
-        return { success: false, reason: "wallet-disconnected" };
-      }
-
-      if (!signer) {
-        setError("Wallet not providing signer – please reconnect");
-        toast.error("No wallet signer", {
-          description: "Please reconnect your wallet to decrypt this file.",
-        });
-        return { success: false, reason: "no-signer" };
-      }
-
-      if (!isTacoInit) {
-        setError("TACo not initialized - please try again in a moment");
-        toast.error("TACo not initialized", {
-          description:
-            "The encryption service is not ready. Please try again in a moment.",
-        });
-        return { success: false, reason: "taco-not-initialized" };
-      }
-
-      return { success: true };
-    }, [walletConnected, signer, isTacoInit]);
+    return { success: true };
+  }, [walletConnected, signer, isTacoInit]);
 
   // Encrypt a file with access conditions
   const encryptFile = useCallback(
     async (
       file: File,
-      options: FileEncryptionOptions = {}
-    ): Promise<{ encryptedFile: File | null; accessCondition?: string }> => {
+      options: EncryptOptions = {}
+    ): Promise<EncryptionResult> => {
       const {
         accessConditionType = "positive",
-        accessConditionArgs = {
-          windowTimeInSeconds: 60,
-          nftContractAddress: "",
-          minimumBalance: 1,
-          chainId: 1,
-          networkName: "testnet",
-        },
+        accessConditionArgs = applyConditionDefaults(
+          options.accessConditionArgs || {}
+        ),
       } = options;
-
       // Verify encryption requirements
       const requirements = checkEncryptionRequirements();
       if (!requirements.success) {
-        return { encryptedFile: null };
+        return { encryptedFile: null, error: new Error(requirements.reason) };
       }
 
       try {
@@ -118,7 +99,7 @@ export function useFileEncryption() {
         console.log(`Creating ${accessConditionType} condition...`);
         const { condition: accessCond, description } = await createCondition(
           accessConditionType,
-          accessConditionArgs as any
+          accessConditionArgs[accessConditionType]
         );
 
         // Ensure signer is available
@@ -147,26 +128,61 @@ export function useFileEncryption() {
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : "Unknown encryption error";
-        setError(errorMsg);
+        setError(new Error(errorMsg));
         toast.error("Encryption failed", { description: errorMsg });
         console.error("File encryption error:", errorMsg);
         return { encryptedFile: null };
       }
     },
-    [checkEncryptionRequirements, createCondition, encryptDataToBytes, signer]
+    [
+      checkEncryptionRequirements,
+      createCondition,
+      encryptDataToBytes,
+      signer,
+      setError,
+    ]
   );
 
   // Decrypt a blob with the correct access condition
   const decryptBlob = useCallback(
     async (
       blob: Blob,
-      fileType?: string,
-      accessCondition?: string
-    ): Promise<{ decryptedBlob: Blob | null; error?: string }> => {
+      options: DecryptOptions = {}
+    ): Promise<DecryptionResult> => {
+      const { fileType, accessCondition } = options;
+
       // Verify decryption requirements
-      const requirements = checkDecryptionRequirements();
-      if (!requirements.success) {
-        return { decryptedBlob: null, error: requirements.reason };
+      if (!walletConnected) {
+        setError(new Error("Wallet not connected – connect wallet to decrypt"));
+        toast.error("Wallet not connected", {
+          description: "Please connect your wallet to decrypt this file.",
+        });
+        return {
+          decryptedBlob: null,
+          error: new Error("Wallet not connected"),
+        };
+      }
+
+      if (!signer) {
+        setError(new Error("Wallet not providing signer – please reconnect"));
+        toast.error("No wallet signer", {
+          description: "Please reconnect your wallet to decrypt this file.",
+        });
+        return { decryptedBlob: null, error: new Error("No wallet signer") };
+      }
+
+      if (!isTacoInit) {
+        setError(
+          new Error("TACo not initialized - please try again in a moment")
+        );
+        toast.error("TACo not initialized", {
+          description:
+            "The encryption service is not ready. Please try again in a moment.",
+        });
+        return {
+          decryptedBlob: null,
+          error: new Error("TACo not initialized"),
+        };
       }
 
       try {
@@ -227,12 +243,12 @@ export function useFileEncryption() {
 
           toast.error("Access denied: TACo condition not satisfied", {
             description: conditionDesc,
-            duration: 10000,
+            duration: 30000,
           });
 
           return {
             decryptedBlob: null,
-            error: `Access denied: ${conditionDesc}`,
+            error: new Error(`Access denied: ${conditionDesc}`),
           };
         }
 
@@ -244,34 +260,18 @@ export function useFileEncryption() {
 
         return {
           decryptedBlob: null,
-          error: errorMsg,
+          error: new Error(errorMsg),
         };
       }
     },
-    [checkDecryptionRequirements, decryptDataFromBytes, signer]
+    [walletConnected, signer, isTacoInit, setError]
   );
 
-  // Helper to download a blob as a file
-  const downloadBlob = useCallback((blob: Blob, fileName: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, []);
-
   return {
-    error,
-    setError,
-    checkEncryptionRequirements,
-    checkDecryptionRequirements,
     encryptFile,
     decryptBlob,
-    downloadBlob,
-    isReady: isTacoInit && walletConnected && !!signer,
+    checkEncryptionRequirements,
+    error,
+    setError,
   };
-}
+};

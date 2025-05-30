@@ -5,16 +5,26 @@ import { useCallback } from "react";
 import { useFileTransfer } from "@/context/FileTransferContext";
 import { cn } from "@/lib/utils";
 
-export default function FileUpload() {
+interface FileUploadProps {
+  maxSizeMB?: number;
+  allowedTypes?: string[];
+}
+
+export const FileUpload = ({ maxSizeMB = 100, allowedTypes = [] }: FileUploadProps) => {
   const { sendFiles } = useFileTransfer();
 
-  const onDrop = useCallback((accepted: File[]) => {
+  const handleDrop = useCallback((accepted: File[]) => {
     if (accepted.length) {
       void sendFiles(accepted);
     }
   }, [sendFiles]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleDrop,
+    maxFiles: 1,
+    maxSize: maxSizeMB * 1024 * 1024,
+    accept: allowedTypes.length ? Object.fromEntries(allowedTypes.map(t => [t, []])) : undefined
+  });
 
   return (
     <div>
@@ -38,7 +48,7 @@ export default function FileUpload() {
           </h3>
           <p className="text-sm text-muted-foreground mb-2 font-mono">or click to select files</p>
           <div className="px-4 py-1.5 rounded-full bg-muted text-xs text-muted-foreground font-mono border border-primary/10">
-            MAX_SIZE=100MB
+            MAX_SIZE={maxSizeMB}MB
           </div>
         </div>
       </div>

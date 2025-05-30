@@ -16,16 +16,19 @@ export default function TacoConfigPanel() {
     setUseEncryption,
     accessConditionType,
     setAccessConditionType,
-    windowTimeSeconds,
+    windowTimeInSeconds,
     setWindowTimeSeconds,
     nftContractAddress,
     setNftContractAddress,
+    minimumBalance,
+    setMinimumBalance,
     isTacoInit,
   } = useTacoContext();
   const { walletConnected } = useWallet();
 
   const timeInputRef = useRef<HTMLDivElement>(null);
   const nftContractAddressInputRef = useRef<HTMLDivElement>(null);
+  const minimumBalanceInputRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="space-y-4">
@@ -130,6 +133,26 @@ export default function TacoConfigPanel() {
                 </div>
               </RadioGroup>
 
+              {accessConditionType === "positive" && (
+                <div ref={minimumBalanceInputRef} className="space-y-1">
+                  <Label htmlFor="minimum-balance" className="text-xs font-mono text-muted-foreground">
+                    MINIMUM_BALANCE
+                  </Label>
+                  <Input
+                    id="minimum-balance"
+                    type="number"
+                    min="0"
+                    placeholder="1"
+                    value={minimumBalance}
+                    onChange={(e) => setMinimumBalance(Number(e.target.value))}
+                    className="font-mono text-sm bg-card/70"
+                  />
+                  <p className="text-xs text-muted-foreground font-mono">
+                    Minimum network-native token balance required to decrypt and access the file
+                  </p>
+                </div>
+              )}
+
               {accessConditionType === "time" && (
                 <div ref={timeInputRef} className="space-y-1">
                   <Label htmlFor="window-time" className="text-xs font-mono text-muted-foreground">
@@ -138,7 +161,7 @@ export default function TacoConfigPanel() {
                   <Input
                     id="window-time"
                     placeholder="60"
-                    value={windowTimeSeconds}
+                    value={windowTimeInSeconds}
                     onChange={(e) => setWindowTimeSeconds(e.target.value)}
                     className="font-mono text-sm bg-card/70"
                   />

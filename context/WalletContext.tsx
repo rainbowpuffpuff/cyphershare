@@ -1,5 +1,20 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { ethers } from 'ethers';
+import { ExternalProvider } from '@ethersproject/providers';
+
+// Define a more specific interface for MetaMask provider that extends ExternalProvider
+interface MetaMaskProvider extends ExternalProvider {
+  request?: <T = unknown>(args: { method: string; params?: unknown[] }) => Promise<T>;
+  on?: (eventName: string, listener: (...args: string[]) => void) => void;
+  removeListener?: (eventName: string, listener: (...args: string[]) => void) => void;
+}
+
+// Add ethereum property to the Window interface
+declare global {
+  interface Window {
+    ethereum?: MetaMaskProvider;
+  }
+}
 
 // Define the context value type
 interface WalletContextType {
@@ -98,8 +113,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         
         // Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const address = accounts[0];
+        const accounts = await window.ethereum?.request?.<string[]>({ method: 'eth_requestAccounts' });
+        const address = accounts?.[0] || '';
         
         // Check if we're on the correct network (Polygon Amoy testnet)
         const { chainId } = await provider.getNetwork();
@@ -108,14 +123,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
         if (chainId !== amoyChainId) {
           try {
             // Try to switch to Amoy testnet
-            await window.ethereum.request({
+            await window.ethereum?.request?.({ 
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: '0x13882' }], // 0x13882 is 80002 in hex
             });
-          } catch (switchError: any) {
+          } catch (switchError: unknown) {
             // This error code indicates that the chain has not been added to MetaMask
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
+            if ((switchError as { code: number }).code === 4902) {
+              await window.ethereum?.request?.({
                 method: 'wallet_addEthereumChain',
                 params: [
                   {
@@ -162,7 +177,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
   // Handle account changes
   useEffect(() => {
     if (typeof window !== 'undefined' && window.ethereum) {
-      const handleAccountsChanged = (accounts: string[]) => {
+      const handleAccountsChanged = (...args: string[]) => {
+        const accounts = args[0];
         if (accounts.length === 0) {
           // User disconnected their wallet
           setWalletConnected(false);
@@ -186,12 +202,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
         window.location.reload();
       };
 
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
+      window.ethereum?.on?.('accountsChanged', handleAccountsChanged);
+      window.ethereum?.on?.('chainChanged', handleChainChanged);
 
       return () => {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
+        window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
       };
     }
   }, [provider, walletConnected]);

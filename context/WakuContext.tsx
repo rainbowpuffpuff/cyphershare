@@ -1,6 +1,6 @@
 // /context/WakuContext.tsx
 // Handles Waku messaging functionality
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
 import useWaku, { WakuFileMessage } from "@/hooks/useWaku";
 import { useSettings } from "./SettingsContext";
 
@@ -43,7 +43,6 @@ interface WakuProviderProps {
 
 export function WakuProvider({ children, onFileReceived, roomId }: WakuProviderProps) {
   const { wakuNodeUrl, wakuNodeType } = useSettings();
-  const [initError, setInitError] = useState<string | null>(null);
   
   // Validate node type before passing to hook
   const validNodeType = (wakuNodeType === "light" || wakuNodeType === "relay") 
@@ -65,15 +64,13 @@ export function WakuProvider({ children, onFileReceived, roomId }: WakuProviderP
     onFileReceived,
   });
 
-  // Combine hook error with any initialization errors
-  const error = initError || wakuError;
   
   const value: WakuContextType = {
     isWakuConnected,
     isWakuConnecting,
     wakuPeerCount,
     wakuContentTopic,
-    wakuError: error,
+    wakuError,
     sendFileMessage,
   };
 
