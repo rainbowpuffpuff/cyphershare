@@ -64,17 +64,20 @@ export default function TopBar() {
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline" />
         </div>
       </div>
+      <div className="flex items-center gap-4">
+
         <a
           href="https://github.com/hackyguru/cyphershare"
           target="_blank"
           rel="noopener noreferrer"
           className="p-2.5 rounded-full hover:bg-accent/80 transition-colors border border-primary/20 flex-shrink-0"
           aria-label="View on GitHub"
-        >
+          >
           <Github size={20} className="text-primary" />
         </a>
         <WalletConnectButton className="h-8" />
         <SettingsSheet />
+          </div>
     </header>
     </div>
   );
