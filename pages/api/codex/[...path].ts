@@ -36,13 +36,14 @@ export default async function handler(
     });
 
     // Copy relevant headers from the original request
-    ["accept", "content-length", "content-disposition"].forEach((header) => {
-      const value = req.headers[header];
-      if (value) {
-        headers.set(header, value.toString());
+    ["accept", "content-type", "content-length", "content-disposition"].forEach(
+      (header) => {
+        const value = req.headers[header];
+        if (value) {
+          headers.set(header, value.toString());
+        }
       }
-    });
-    headers.set("content-type", "text/plain");
+    );
 
     // Get the raw body if needed
     let body: Buffer | undefined;
@@ -72,11 +73,9 @@ export default async function handler(
     res.send(Buffer.from(buffer));
   } catch (error) {
     console.error("Error in Codex API proxy:", error);
-    res
-      .status(500)
-      .json({
-        error: "Internal Server Error",
-        details: error instanceof Error ? error.message : String(error),
-      });
+    res.status(500).json({
+      error: "Internal Server Error",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 }
