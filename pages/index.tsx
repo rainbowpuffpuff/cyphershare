@@ -5,6 +5,7 @@ import { FileList } from "@/components/files/FileList";
 import WakuDebugConsole from "@/components/debug-consoles/WakuDebugConsole";
 import CodexDebugConsole from "@/components/debug-consoles/CodexDebugConsole";
 import TacoDebugConsole from "@/components/debug-consoles/TacoDebugConsole";
+import { DebugConsoleProvider } from "@/context/DebugConsoleContext"; // Added import
 import Head from "next/head";
 import { useState, useCallback } from "react"; // Added useCallback
 import { FileItem } from "@/types/files";
@@ -64,9 +65,11 @@ export default function Home() {
               processingPyFileId={processingPyFileId}
             />
           </div>
-          <WakuDebugConsole />
-          <CodexDebugConsole />
-          <TacoDebugConsole />
+          <DebugConsoleProvider> {/* Added provider */}
+            <WakuDebugConsole />
+            <CodexDebugConsole />
+            <TacoDebugConsole />
+          </DebugConsoleProvider> {/* Added provider */}
         </div>
       </MainLayout>
       {isPyodideModalOpen &&

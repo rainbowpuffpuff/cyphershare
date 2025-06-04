@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
+import { useDebugConsole } from "@/context/DebugConsoleContext"; // Added import
 import { cn } from "@/lib/utils";
 import { SUPPORTED_CHAIN_IDS } from "@/hooks/useTaco";
 
@@ -17,6 +18,7 @@ interface DebugLog {
 }
 
 export default function TacoDebugConsole() {
+  const consoleId = "taco"; // Added console ID
   const { walletConnected, provider } = useWallet();
   const { 
     useEncryption, 
@@ -26,8 +28,10 @@ export default function TacoDebugConsole() {
     domain 
   } = useTacoContext();
   const { networkInfo } = useWallet();
+  const { activeConsole, setActiveConsole } = useDebugConsole(); // Use context
 
   const [isOpen, setIsOpen] = useState(false);
+  const isActive = activeConsole === consoleId; // Check if this console is active
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
   // Helper to add a log entry (keeps last 20)
@@ -112,13 +116,24 @@ export default function TacoDebugConsole() {
     }
   };
 
+  const handleToggle = () => { // Modified toggle handler
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    if (newIsOpen) {
+      setActiveConsole(consoleId);
+    } else if (isActive) {
+      // Optional: If closing the active console, set no console as active
+      // setActiveConsole(null);
+    }
+  };
+
   return (
-    <div className="fixed bottom-4 right-44 z-50">
+    <div className={cn("fixed bottom-4 right-[152px]", isActive ? "z-50" : "z-40")}> {/* Dynamic z-index, preserving right-[152px] */}
       {/* Toggle button */}
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle} // Use modified handler
         className={cn(
           "rounded-full p-2 h-10 w-10 border border-primary/20 relative shadow-md",
           isOpen ? "bg-primary/10" : "bg-card"
@@ -149,7 +164,10 @@ export default function TacoDebugConsole() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsOpen(false)}
+              onClick={() => { // Close button also considers active state
+                setIsOpen(false);
+                // if (isActive) setActiveConsole(null); // Optional: if closing active
+              }}
               className="h-6 w-6 p-0"
             >
               <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />

@@ -4,6 +4,7 @@ import { Terminal, XCircle, Info, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFileTransfer } from "@/context/FileTransferContext";
+import { useDebugConsole } from "@/context/DebugConsoleContext"; // Added import
 import { cn } from "@/lib/utils";
 
 type LogType = 'info' | 'error' | 'success';
@@ -15,8 +16,11 @@ interface WakuDebugLog {
 }
 
 export default function WakuDebugConsole() {
+  const consoleId = "waku"; // Added console ID
   const { isWakuConnected, isWakuConnecting, wakuPeerCount } = useFileTransfer();
+  const { activeConsole, setActiveConsole } = useDebugConsole(); // Use context
   const [isOpen, setIsOpen] = useState(false);
+  const isActive = activeConsole === consoleId; // Check if this console is active
   const [logs, setLogs] = useState<WakuDebugLog[]>([]);
 
   // Add a debug log
@@ -54,13 +58,24 @@ export default function WakuDebugConsole() {
     }
   };
 
+  const handleToggle = () => { // Modified toggle handler
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    if (newIsOpen) {
+      setActiveConsole(consoleId);
+    } else if (isActive) {
+      // Optional: If closing the active console, set no console as active
+      // setActiveConsole(null);
+    }
+  };
+
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className={cn("fixed bottom-4 right-4", isActive ? "z-50" : "z-40")}> {/* Dynamic z-index */}
       {/* Debug Console Button */}
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle} // Use modified handler
         className={cn(
           "rounded-full p-2 h-10 w-10 border border-primary/20 relative shadow-md",
           isOpen ? "bg-primary/10" : "bg-card"
@@ -94,7 +109,10 @@ export default function WakuDebugConsole() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsOpen(false)}
+                onClick={() => { // Close button also considers active state
+                  setIsOpen(false);
+                  // if (isActive) setActiveConsole(null); // Optional: if closing active
+                }}
                 className="h-6 w-6 p-0"
               >
                 <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />
