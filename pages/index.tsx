@@ -1,4 +1,3 @@
-// pages/index.tsx
 import MainLayout from "@/components/layout/MainLayout";
 import { FileUpload } from "@/components/files/FileUpload";
 import { FileList } from "@/components/files/FileList";
@@ -37,7 +36,7 @@ export default function Home() {
     file: FileItem;
     scriptContent: string;
     secret: string;
-    scriptHash: string;
+    scriptHash: string; // This will now hold the combined hash
   } | null>(null);
   const [selectedEmlFile, setSelectedEmlFile] = useState<File | null>(null);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
@@ -62,16 +61,26 @@ export default function Home() {
     }
   }, []);
 
-  const handleOpenProofSubmissionModal = useCallback(
+  // This function is now the single source of truth for creating the final hash
+  const handleExecutionComplete = useCallback(
     async (file: FileItem, scriptContent: string, secret: string) => {
       if (!walletConnected) {
         toast.error("Please connect your wallet to submit a proof.");
         return;
       }
-      const hash = (await calculateSha256(scriptContent)) + secret;
-      setProofData({ file, scriptContent, secret, scriptHash: hash });
+
+      // The hash is now correctly calculated here, with the unique secret.
+      const scriptHashOnly = await calculateSha256(scriptContent);
+      const finalCombinedHash = scriptHashOnly + secret;
+
+      setProofData({
+        file,
+        scriptContent,
+        secret,
+        scriptHash: finalCombinedHash, // Store the final, combined hash
+      });
       setIsProofModalOpen(true);
-      setIsPyodideModalOpen(false);
+      setIsPyodideModalOpen(false); // Close the runner modal
     },
     [walletConnected]
   );
@@ -103,9 +112,14 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || `API request failed with status ${response.status}`
-        );
+        let errorMsg = `API request failed with status ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (e) {
+          errorMsg = `${errorMsg}. The server might have crashed. Check the terminal logs.`;
+        }
+        throw new Error(errorMsg);
       }
 
       toast.success("Email proof submitted successfully!");
@@ -155,7 +169,7 @@ export default function Home() {
           isOpen={isPyodideModalOpen}
           onOpenChange={handlePyodideModalOpenChange}
           pythonFile={selectedPyFileForModal}
-          onOpenProofModal={handleOpenProofSubmissionModal}
+          onExecutionComplete={handleExecutionComplete}
         />
       )}
 
@@ -213,6 +227,7 @@ export default function Home() {
                     Body (Exact - Plain Text):
                   </strong>
                   <div className="mt-1 p-2 bg-background border border-input rounded text-xs text-primary break-all flex items-center gap-2">
+                    {/* This now displays the final, combined hash */}
                     <span>{proofData.scriptHash}</span>
                     <Button
                       variant="ghost"
