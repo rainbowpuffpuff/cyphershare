@@ -1,7 +1,3 @@
-// /types/files.ts
-// Centralised shared types for file handling across contexts and hooks.
-// Keeping these small and beginner-friendly.
-
 export interface FileItem {
   id: number | string;
   name: string;
@@ -13,6 +9,7 @@ export interface FileItem {
   accessCondition?: string;
   isUploading?: boolean;
   progress?: number;
+  scriptHash?: string; // Added for Python files that have been run
 }
 
 export interface UploadingFile {

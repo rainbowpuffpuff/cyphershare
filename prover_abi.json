@@ -1,0 +1,58 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes",
+            "name": "header",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "body",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "bodyHash",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "publicKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct PreverifiedEmail",
+        "name": "email",
+        "type": "tuple"
+      },
+      {
+        "internalType": "string",
+        "name": "script",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "secret",
+        "type": "string"
+      }
+    ],
+    "name": "main",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]
