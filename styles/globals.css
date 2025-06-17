@@ -28,6 +28,28 @@
   --radius: 0.5rem;
 }
 
+.light {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #f0f0f0;
+  --card-foreground: #000000;
+  --popover: #f0f0f0;
+  --popover-foreground: #000000;
+  --primary: #007bff;
+  --primary-foreground: #ffffff;
+  --secondary: #6c757d;
+  --secondary-foreground: #ffffff;
+  --muted: #f8f9fa;
+  --muted-foreground: #6c757d;
+  --accent: #e9ecef;
+  --accent-foreground: #000000;
+  --destructive: #dc3545;
+  --destructive-foreground: #ffffff;
+  --border: #dee2e6;
+  --input: #ced4da;
+  --ring: #007bff;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -60,8 +82,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* Enhanced cathode display effect */
-  text-shadow: 0 0 3px rgba(6, 243, 145, 0.7);
   position: relative;
   overflow-x: hidden;
 }
@@ -102,6 +122,10 @@ body::after {
   );
   pointer-events: none;
   z-index: 9998;
+}
+
+.dark body {
+  text-shadow: 0 0 3px rgba(6, 243, 145, 0.7);
 }
 
 /* Enhanced scanline background class for components */
@@ -148,7 +172,7 @@ body::after {
 }
 
 /* Apply enhanced flicker to all elements with primary color */
-.text-primary {
+.dark .text-primary {
   animation: crt-flicker 8s infinite;
 }
 
@@ -172,57 +196,70 @@ body::after {
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Add monospace font for the terminal look */
-  input, button, textarea, select {
+  input,
+  button,
+  textarea,
+  select {
     font-family: var(--font-mono);
   }
-  
+
   /* Add terminal cursor effect to inputs */
   input:focus {
     animation: cursor-blink 1s step-end infinite;
   }
-  
+
   @keyframes cursor-blink {
-    from, to {
+    from,
+    to {
       border-right: 2px solid transparent;
     }
     50% {
       border-right: 2px solid var(--foreground);
     }
   }
-  
+
   /* Terminal-specific styling */
-  button, .button {
+  button,
+  .button {
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  
+
   /* Add glow effect to primary elements */
-  .text-primary, button:hover, a:hover {
+  .dark .text-primary,
+  .dark button:hover,
+  .dark a:hover {
     text-shadow: 0 0 4px rgba(6, 243, 145, 0.6);
   }
-  
+
+  .light .text-primary,
+  .light button:hover,
+  .light a:hover {
+    text-shadow: none;
+  }
+
   /* Add terminal-style borders */
   .border {
     border-color: rgba(6, 243, 145, 0.3);
   }
-  
+
   /* Add terminal-style scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: rgba(3, 33, 21, 0.5);
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background: rgba(6, 243, 145, 0.3);
     border-radius: 4px;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(6, 243, 145, 0.5);
   }

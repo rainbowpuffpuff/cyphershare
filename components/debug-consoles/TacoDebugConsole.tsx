@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWallet } from "@/context/WalletContext";
 import { useTacoContext } from "@/context/TacoContext";
+import { useDebugConsole } from "@/context/DebugConsoleContext"; // Added import
 import { cn } from "@/lib/utils";
 import { SUPPORTED_CHAIN_IDS } from "@/hooks/useTaco";
 
@@ -17,17 +18,15 @@ interface DebugLog {
 }
 
 export default function TacoDebugConsole() {
+  const consoleId = "taco"; // Added console ID
   const { walletConnected, provider } = useWallet();
-  const { 
-    useEncryption, 
-    isTacoInit, 
-    networkError, 
-    ritualId, 
-    domain 
-  } = useTacoContext();
+  const { useEncryption, isTacoInit, networkError, ritualId, domain } =
+    useTacoContext();
   const { networkInfo } = useWallet();
+  const { activeConsole, setActiveConsole } = useDebugConsole(); // Use context
 
   const [isOpen, setIsOpen] = useState(false);
+  const isActive = activeConsole === consoleId; // Check if this console is active
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
   // Helper to add a log entry (keeps last 20)
@@ -54,15 +53,17 @@ export default function TacoDebugConsole() {
       walletConnected ? "Wallet connected" : "Wallet not connected"
     );
   }, [walletConnected, addLog]);
-  
+
   // Log TACo initialization status
   useEffect(() => {
     addLog(
       isTacoInit ? "success" : "info",
-      isTacoInit ? "TACo initialized" : "TACo not initialized - You need to connect a wallet and enable encryption from settings"
+      isTacoInit
+        ? "TACo initialized"
+        : "TACo not initialized - You need to connect a wallet and enable encryption from settings"
     );
   }, [isTacoInit, addLog]);
-  
+
   // Log network errors
   useEffect(() => {
     if (networkError) {
@@ -92,7 +93,9 @@ export default function TacoDebugConsole() {
         console.error("Failed to get network:", err);
         addLog(
           "error",
-          `Failed to fetch network: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to fetch network: ${
+            err instanceof Error ? err.message : String(err)
+          }`
         );
       }
     };
@@ -112,13 +115,29 @@ export default function TacoDebugConsole() {
     }
   };
 
+  const handleToggle = () => {
+    // Modified toggle handler
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    if (newIsOpen) {
+      setActiveConsole(consoleId);
+    } else if (isActive) {
+      // Optional: If closing the active console, set no console as active
+      // setActiveConsole(null);
+    }
+  };
+
   return (
-    <div className="fixed bottom-4 right-44 z-50">
+    <div
+      className={cn("fixed bottom-4 right-[152px]", isActive ? "z-50" : "z-40")}
+    >
+      {" "}
+      {/* Dynamic z-index, preserving right-[152px] */}
       {/* Toggle button */}
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle} // Use modified handler
         className={cn(
           "rounded-full p-2 h-10 w-10 border border-primary/20 relative shadow-md",
           isOpen ? "bg-primary/10" : "bg-card"
@@ -129,14 +148,21 @@ export default function TacoDebugConsole() {
         <div
           className={cn(
             "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-card",
-            isTacoInit && useEncryption ? "bg-green-500 animate-pulse" : 
-            isTacoInit ? "bg-amber-500" : "bg-red-500"
+            isTacoInit && useEncryption
+              ? "bg-green-500 animate-pulse"
+              : isTacoInit
+              ? "bg-amber-500"
+              : "bg-red-500"
           )}
-          title={!isTacoInit ? "TACo not initialized" : 
-                 useEncryption ? "Encryption enabled" : "Encryption disabled"}
+          title={
+            !isTacoInit
+              ? "TACo not initialized"
+              : useEncryption
+              ? "Encryption enabled"
+              : "Encryption disabled"
+          }
         ></div>
       </Button>
-
       {/* Panel */}
       {isOpen && (
         <div className="bg-card border border-border rounded-lg shadow-lg w-80 sm:w-96 absolute bottom-12 right-0 overflow-hidden">
@@ -149,17 +175,24 @@ export default function TacoDebugConsole() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                // Close button also considers active state
+                setIsOpen(false);
+                // if (isActive) setActiveConsole(null); // Optional: if closing active
+              }}
               className="h-6 w-6 p-0"
             >
-              <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />
+              <XCircle
+                size={16}
+                className="text-muted-foreground hover:text-primary transition-colors"
+              />
             </Button>
           </div>
           <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               {networkInfo && (
                 <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                  {networkInfo.name} 
+                  {networkInfo.name}
                   {/* ({networkInfo.chainId}) */}
                 </span>
               )}
@@ -174,15 +207,21 @@ export default function TacoDebugConsole() {
           <ScrollArea className="h-64 bg-black/90">
             <div className="p-2 font-mono text-xs space-y-1">
               {logs.length === 0 ? (
-                <div className="text-muted-foreground p-2 text-center">No logs yet</div>
+                <div className="text-muted-foreground p-2 text-center">
+                  No logs yet
+                </div>
               ) : (
                 logs.map((log, index) => (
                   <div
                     key={index}
                     className="flex items-start gap-2 p-1 hover:bg-white/5 rounded"
                   >
-                    <span className="flex-shrink-0 mt-0.5">{getLogIcon(log.type)}</span>
-                    <span className="text-muted-foreground">[{log.timestamp}]</span>
+                    <span className="flex-shrink-0 mt-0.5">
+                      {getLogIcon(log.type)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      [{log.timestamp}]
+                    </span>
                     <span
                       className={cn(
                         log.type === "info" && "text-blue-300",
@@ -211,4 +250,3 @@ export default function TacoDebugConsole() {
     </div>
   );
 }
-

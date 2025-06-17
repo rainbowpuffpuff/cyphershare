@@ -1,15 +1,10 @@
 // components/codex/CodexDebugConsole.tsx
 import { useState, useEffect, useCallback } from "react";
-import {
-  XCircle,
-  Info,
-  AlertCircle,
-  CheckCircle,
-  Server,
-} from "lucide-react";
+import { XCircle, Info, AlertCircle, CheckCircle, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCodex } from "@/hooks/useCodex";
+import { useDebugConsole } from "@/context/DebugConsoleContext"; // Added import
 import { useSettings } from "@/context/SettingsContext";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +17,14 @@ interface DebugLog {
 }
 
 export default function CodexDebugConsole() {
+  const consoleId = "codex"; // Added console ID
   const { codexNodeUrl } = useSettings();
-  const { isNodeActive, isLoading, error, endpointType } = useCodex(codexNodeUrl);
+  const { isNodeActive, isLoading, error, endpointType } =
+    useCodex(codexNodeUrl);
+  const { activeConsole, setActiveConsole } = useDebugConsole(); // Use context
 
   const [isOpen, setIsOpen] = useState(false);
+  const isActive = activeConsole === consoleId; // Check if this console is active
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
   // Helper to add a log entry (keeps last 20)
@@ -65,13 +64,27 @@ export default function CodexDebugConsole() {
     }
   };
 
+  const handleToggle = () => {
+    // Modified toggle handler
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    if (newIsOpen) {
+      setActiveConsole(consoleId);
+    } else if (isActive) {
+      // Optional: If closing the active console, set no console as active
+      // setActiveConsole(null);
+    }
+  };
+
   return (
-    <div className="fixed bottom-4 right-24 z-50">
+    <div className={cn("fixed bottom-4 right-24", isActive ? "z-50" : "z-40")}>
+      {" "}
+      {/* Dynamic z-index */}
       {/* Toggle button */}
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle} // Use modified handler
         className={cn(
           "rounded-full p-2 h-10 w-10 border border-primary/20 relative shadow-md",
           isOpen ? "bg-primary/10" : "bg-card"
@@ -97,7 +110,6 @@ export default function CodexDebugConsole() {
           }
         ></div>
       </Button>
-
       {/* Panel */}
       {isOpen && (
         <div className="bg-card border border-border rounded-lg shadow-lg w-80 sm:w-96 absolute bottom-12 right-0 overflow-hidden">
@@ -113,25 +125,38 @@ export default function CodexDebugConsole() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  // Close button also considers active state
+                  setIsOpen(false);
+                  // if (isActive) setActiveConsole(null); // Optional: if closing active
+                }}
                 className="h-6 w-6 p-0"
               >
-                <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />
+                <XCircle
+                  size={16}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                />
               </Button>
             </div>
           </div>
           <ScrollArea className="h-64 bg-black/90">
             <div className="p-2 font-mono text-xs space-y-1">
               {logs.length === 0 ? (
-                <div className="text-muted-foreground p-2 text-center">No logs yet</div>
+                <div className="text-muted-foreground p-2 text-center">
+                  No logs yet
+                </div>
               ) : (
                 logs.map((log, index) => (
                   <div
                     key={index}
                     className="flex items-start gap-2 p-1 hover:bg-white/5 rounded"
                   >
-                    <span className="flex-shrink-0 mt-0.5">{getLogIcon(log.type)}</span>
-                    <span className="text-muted-foreground">[{log.timestamp}]</span>
+                    <span className="flex-shrink-0 mt-0.5">
+                      {getLogIcon(log.type)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      [{log.timestamp}]
+                    </span>
                     <span
                       className={cn(
                         log.type === "info" && "text-blue-300",
