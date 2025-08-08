@@ -2,8 +2,9 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
 
 export interface Settings {
-  codexNodeUrl: string;
-  codexEndpointType: "remote" | "local";
+  swarmNodeUrl: string;
+  swarmEndpointType: "remote" | "local";
+  swarmPostageBatchId: string;
   wakuNodeUrl: string;
   wakuNodeType: "light" | "relay";
 }
@@ -13,8 +14,9 @@ interface SettingsContextType extends Settings {
 }
 
 const defaultSettings: Settings = {
-  codexNodeUrl: process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "http://localhost:8080/api/codex",
-  codexEndpointType: "remote",
+  swarmNodeUrl: process.env.NEXT_PUBLIC_SWARM_NODE_URL || "http://localhost:1633",
+  swarmEndpointType: "local",
+  swarmPostageBatchId: process.env.NEXT_PUBLIC_SWARM_POSTAGE_BATCH_ID || "",
   wakuNodeUrl: "http://127.0.0.1:8645",
   wakuNodeType: "light",
 };

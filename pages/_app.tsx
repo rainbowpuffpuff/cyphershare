@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { WalletProvider } from "@/context/WalletContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { TacoProvider } from "@/context/TacoContext";
-import { CodexProvider } from "@/context/CodexContext";
+import { SwarmProvider } from "@/context/SwarmContext";
 import { WakuProvider } from "@/context/WakuContext";
 import { FileTransferProvider, FileTransferHandle } from "@/context/FileTransferContext";
 
@@ -19,14 +19,14 @@ export default function App({ Component, pageProps }: AppProps) {
       <SettingsProvider>
         <WalletProvider>
           <TacoProvider>
-            <CodexProvider>
+            <SwarmProvider>
               <WakuProvider onFileReceived={(msg) => fileTransferRef.current?.handleFileReceived(msg)}>
                 <FileTransferProvider ref={fileTransferRef}>
                   <Component {...pageProps} />
                   <Toaster richColors position="top-center" />
                 </FileTransferProvider>
               </WakuProvider>
-            </CodexProvider>
+            </SwarmProvider>
           </TacoProvider>
         </WalletProvider>
       </SettingsProvider>

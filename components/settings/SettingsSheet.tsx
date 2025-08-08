@@ -13,7 +13,7 @@ import { Settings, Server, Shield, Radio } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import TacoConfigPanel from "@/components/settings/TacoConfigPanel";
-import CodexConfigPanel from './CodexConfigPanel';
+import SwarmConfigPanel from './SwarmConfigPanel';
 import WakuConfigPanel from './WakuConfigPanel';
 
 export default function SettingsSheet() {
@@ -58,7 +58,7 @@ export default function SettingsSheet() {
               <WakuConfigPanel />
             </TabsContent>
             <TabsContent value="storage" className="mt-0">
-              <CodexConfigPanel />
+              <SwarmConfigPanel />
             </TabsContent>
             <TabsContent value="encryption" className="mt-0">
               <TacoConfigPanel />

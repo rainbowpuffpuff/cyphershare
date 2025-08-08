@@ -21,7 +21,7 @@ import { useFileList } from "@/hooks/useFileList";
 import { applyConditionDefaults } from "@/types/taco";
 import { prepareFileMetadata, copyToClipboard, downloadFileFromBlob } from "@/utils/fileUtils";
 
-import { useCodexContext } from "./CodexContext";
+import { useSwarmContext } from "./SwarmContext";
 import { useTacoContext } from "./TacoContext";
 import { useWallet } from "./WalletContext";
 import { useWakuContext } from "./WakuContext";
@@ -94,12 +94,12 @@ export const FileTransferProvider = forwardRef<FileTransferHandle, Props>(({ chi
 
   const { networkInfo } = useWallet();
 
-  // Get Codex functionality from CodexContext
+  // Get Swarm functionality from SwarmContext
   const {
-    isCodexNodeActive,
-    uploadFile: codexUploadFile,
-    downloadFile: codexDownloadFile,
-  } = useCodexContext();
+    isSwarmNodeActive,
+    uploadFile: swarmUploadFile,
+    downloadFile: swarmDownloadFile,
+  } = useSwarmContext();
 
   // Get Waku functionality from WakuContext
   const {
@@ -158,9 +158,9 @@ FileTransferProvider.displayName = "FileTransferProvider";
   //-----------------------------------------------------------------------------
   const sendFiles = useCallback(
     async (files: File[]): Promise<void> => {
-      if (!isCodexNodeActive) {
-        setUploadError("Codex node is not active");
-        toast.error("Codex node is not active. Cannot upload files.");
+      if (!isSwarmNodeActive) {
+        setUploadError("Swarm node is not active");
+        toast.error("Swarm node is not active. Cannot upload files.");
         return;
       }
   
@@ -218,7 +218,7 @@ FileTransferProvider.displayName = "FileTransferProvider";
         }
   
         try {
-          const res = await codexUploadFile(
+          const res = await swarmUploadFile(
             uploadFileObj instanceof File ? uploadFileObj : new File([uploadFileObj], file.name), 
             (progress) => {
               setUploadingFiles((prev) => ({
@@ -264,13 +264,13 @@ FileTransferProvider.displayName = "FileTransferProvider";
       }
     },
     [
-      isCodexNodeActive,
+      isSwarmNodeActive,
       useEncryption,
       checkEncryptionRequirements,
       accessConditionType,
       windowTimeInSeconds,
       encryptFile,
-      codexUploadFile,
+      swarmUploadFile,
       addSentFile,
       sendFileMessage
     ]
@@ -315,12 +315,12 @@ FileTransferProvider.displayName = "FileTransferProvider";
         setUploadError(null); // Clear any previous errors
         setCopySuccess(`Downloading ${file.name}...`);
         
-        const res = await codexDownloadFile(file.fileId);
+        const res = await swarmDownloadFile(file.fileId);
         if (!res.success || !res.data) {
           const errorMsg = res.error || "Download failed";
           setUploadError(errorMsg);
           toast.error("Download failed", { description: errorMsg });
-          console.error(`Codex download failed:`, res.error);
+          console.error(`Swarm download failed:`, res.error);
           return;
         }
   
@@ -357,7 +357,7 @@ FileTransferProvider.displayName = "FileTransferProvider";
         setCopySuccess(null);
       }
     },
-    [findFileById, codexDownloadFile, decryptBlob]
+    [findFileById, swarmDownloadFile, decryptBlob]
   );
 
   //-----------------------------------------------------------------------------

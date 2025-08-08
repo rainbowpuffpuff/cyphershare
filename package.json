@@ -10,6 +10,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix"
   },
   "dependencies": {
+    "@ethersphere/bee-js": "^9.7.0",
     "@nucypher/taco": "^0.6.0",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-label": "^2.1.6",

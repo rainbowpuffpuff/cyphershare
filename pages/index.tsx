@@ -3,7 +3,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { FileUpload } from "@/components/files/FileUpload";
 import { FileList } from "@/components/files/FileList";
 import WakuDebugConsole from "@/components/debug-consoles/WakuDebugConsole";
-import CodexDebugConsole from "@/components/debug-consoles/CodexDebugConsole";
+import SwarmDebugConsole from "@/components/debug-consoles/SwarmDebugConsole";
 import TacoDebugConsole from "@/components/debug-consoles/TacoDebugConsole";
 import Head from "next/head";
 import { useState, useCallback } from "react"; // Added useCallback
@@ -65,7 +65,7 @@ export default function Home() {
             />
           </div>
           <WakuDebugConsole />
-          <CodexDebugConsole />
+          <SwarmDebugConsole />
           <TacoDebugConsole />
         </div>
       </MainLayout>

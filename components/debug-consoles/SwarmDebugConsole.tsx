@@ -1,4 +1,4 @@
-// components/codex/CodexDebugConsole.tsx
+// components/swarm/SwarmDebugConsole.tsx
 import { useState, useEffect, useCallback } from "react";
 import {
   XCircle,
@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useCodex } from "@/hooks/useCodex";
-import { useSettings } from "@/context/SettingsContext";
+import { useSwarmContext } from "@/context/SwarmContext";
 import { cn } from "@/lib/utils";
 
 type LogType = "info" | "error" | "success";
@@ -21,14 +20,12 @@ interface DebugLog {
   timestamp: string;
 }
 
-export default function CodexDebugConsole() {
-  const { codexNodeUrl } = useSettings();
-  const { isNodeActive, isLoading, error, endpointType } = useCodex(codexNodeUrl);
+export default function SwarmDebugConsole() {
+  const { isSwarmNodeActive, isSwarmLoading, swarmError } = useSwarmContext();
 
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
-  // Helper to add a log entry (keeps last 20)
   const addLog = useCallback((type: LogType, message: string) => {
     setLogs((prev) => [
       {
@@ -40,20 +37,18 @@ export default function CodexDebugConsole() {
     ]);
   }, []);
 
-  // Push logs whenever status changes
   useEffect(() => {
-    if (isLoading) {
-      addLog("info", "Checking Codex node status ...");
-    } else if (error) {
-      addLog("error", `Codex error: ${error}`);
-    } else if (isNodeActive) {
-      addLog("success", `Codex node active (${endpointType})`);
+    if (isSwarmLoading) {
+      addLog("info", "Checking Swarm node status ...");
+    } else if (swarmError) {
+      addLog("error", `Swarm error: ${swarmError}`);
+    } else if (isSwarmNodeActive) {
+      addLog("success", `Swarm node active`);
     } else {
-      addLog("info", "Codex node inactive");
+      addLog("info", "Swarm node inactive");
     }
-  }, [isNodeActive, isLoading, error, endpointType, addLog]);
+  }, [isSwarmNodeActive, isSwarmLoading, swarmError, addLog]);
 
-  // Icon helper
   const getLogIcon = (type: LogType) => {
     switch (type) {
       case "info":
@@ -66,8 +61,7 @@ export default function CodexDebugConsole() {
   };
 
   return (
-    <div className="fixed bottom-4 right-24 z-50">
-      {/* Toggle button */}
+    <div className="fixed bottom-4 right-36 z-50">
       <Button
         variant="outline"
         size="sm"
@@ -76,49 +70,43 @@ export default function CodexDebugConsole() {
           "rounded-full p-2 h-10 w-10 border border-primary/20 relative shadow-md",
           isOpen ? "bg-primary/10" : "bg-card"
         )}
-        title="Codex Debug Console"
+        title="Swarm Debug Console"
       >
         <Server size={18} className="text-primary" />
         <div
           className={cn(
             "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-card",
-            isLoading
+            isSwarmLoading
               ? "bg-amber-500 animate-pulse"
-              : isNodeActive
+              : isSwarmNodeActive
               ? "bg-green-500 animate-pulse"
               : "bg-red-500"
           )}
           title={
-            isLoading
-              ? "Checking Codex node status ..."
-              : isNodeActive
-              ? `Codex node active (${endpointType})`
-              : "Codex node inactive"
+            isSwarmLoading
+              ? "Checking Swarm node status ..."
+              : isSwarmNodeActive
+              ? `Swarm node active`
+              : "Swarm node inactive"
           }
         ></div>
       </Button>
 
-      {/* Panel */}
       {isOpen && (
         <div className="bg-card border border-border rounded-lg shadow-lg w-80 sm:w-96 absolute bottom-12 right-0 overflow-hidden">
           <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
             <div className="flex items-center gap-2">
               <Server size={16} className="text-primary" />
-              <span className="font-mono text-sm">CODEX_DEBUG_CONSOLE</span>
+              <span className="font-mono text-sm">SWARM_DEBUG_CONSOLE</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                {endpointType}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsOpen(false)}
-                className="h-6 w-6 p-0"
-              >
-                <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-6 w-6 p-0"
+            >
+              <XCircle size={16} className="text-muted-foreground hover:text-primary transition-colors" />
+            </Button>
           </div>
           <ScrollArea className="h-64 bg-black/90">
             <div className="p-2 font-mono text-xs space-y-1">
