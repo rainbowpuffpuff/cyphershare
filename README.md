@@ -1,3 +1,51 @@
+# A Verifiable AI Platform
+
+## 1. Mission & Vision
+
+### Mission Statement
+To build a decentralized platform for an AI Ownership Economy. The system will enable individuals and organizations to contribute diverse data types, receive a verifiable share of the IP in the AI models created, and benefit from the resulting scientific, civic, and commercial applications.
+
+### Vision
+The platform will be a multi-modal data cooperative, launching with three distinct data streams to prove its versatility: Biometric Data (fNIRS), Civic Action Data (ZK-Email), and Behavioral Data (Image Metadata & ZK Mopro).
+
+### Core Objectives
+- **Develop a Multi-Modal B2B Data & AI Platform:** Create tools that solve data scarcity across multiple high-value domains.
+- **Pioneer Verifiable & Private AI:** Engineer a trustless, on-chain chain of evidence from raw data to model output, with a clear path towards privacy-preserving computation using FHE.
+- **Establish a Fair Economic Model:** Implement a verifiable system for algorithmically scoring data contributions and distributing IP/revenue.
+
+## 2. Project Scope: Multi-Modal Data Streams
+The platform is being developed with three initial data streams to demonstrate its capabilities:
+
+- **Data Stream 1 (Biometric - fNIRS):** Researching fNIRS data collection methodologies and building models. The code for this stream is the primary content of the repository in its current state.
+- **Data Stream 2 (Civic Action - ZK-Email):** Developing a system for verifiably rewarding pro-healthcare advocacy using on-device AI and ZK proofs.
+- **Data Stream 3 (Behavioral - Image Metadata):** Designing a feature to incentivize positive sleep habits using on-device AI and ZK Mopro.
+
+## 3. Technical Architecture
+The architecture is designed for verifiability, privacy, and fair value attribution.
+
+### Core Technology Stack:
+- **Frontend/Mobile:** Next.js
+- **Decentralized Storage:** Swarm
+- **Blockchain & Verifiable Compute:** NEAR Protocol and Shade Agents
+- **ZK Proving Systems:** ZK-Email, EZKL, ZK Mopro
+- **Privacy-Preserving Tech (Future):** Fully Homomorphic Encryption (FHE)
+
+### Verifiable AI & Contribution Scoring Engine:
+The core of the platform is a system that provides a chain of evidence for both model accuracy and fair economic distribution. This is achieved using Shade Agents on NEAR, which run containerized Python scripts (for model training and scoring) in a Trusted Execution Environment (TEE). Contribution value is calculated using a Shapley value algorithm, ensuring a trustless and fair record of data value.
+
+## 4. Project Status & Repository Purpose
+This repository is being repurposed to serve as the development hub for the Verifiable AI Platform described above. Initially, it housed a secure file-sharing application (see "Original Project Context" below). The focus has now shifted entirely to the new platform's goals.
+
+Currently, the repository contains the foundational code for **Data Stream 1 (Biometric - fNIRS)**. The primary work is located in the `data_and_python` directory, which includes scripts for data analysis and machine learning.
+
+For instructions on how to run the fNIRS data analysis pipeline, please refer to the detailed guide in the `data_and_python/README.md` file.
+
+## 5. License
+This project is licensed under the MIT License.
+
+<details>
+<summary>Original Project Context: Secure File Sharing Application</summary>
+
 # FileShare - Secure File Sharing Application
 
 A secure file sharing application built with Next.js, React, and TailwindCSS that integrates with Codex and Waku protocols.
@@ -78,3 +126,5 @@ The application targets the **Polygon Amoy** testnet (`80002`). If your MetaMask
 ## License
 
 MIT
+
+</details>
