@@ -3,13 +3,22 @@ body: |
   ## Summary
   
   <!-- Describe what this PR does -->
-
+  
   ## Related Issue
   
   Closes #<issue-number>
+
+  ## How to Test
+  
+  <!-- Provide a step-by-step guide for the reviewer to verify your changes. -->
+  <!-- Example: -->
+  <!-- 1. Run `npm run dev` -->
+  <!-- 2. Navigate to the settings panel -->
+  <!-- 3. Verify the new toggle appears and functions as expected -->
 
   ## Checklist
   
   - [ ] Issue linked and closing syntax used
   - [ ] Tests added / updated
   - [ ] Documentation updated
+  - [ ] Screenshots / Screencast included (if applicable)
