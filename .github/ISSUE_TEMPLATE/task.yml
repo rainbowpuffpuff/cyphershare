@@ -8,6 +8,7 @@ body:
     attributes:
       label: "Roadmap Item"
       options:
+        # --- THINK2EARN (Future Work) ---
         - "Phase 1 — Economic Modeling & Simulation — Design Shapley Value Algorithm"
         - "Phase 1 — Economic Modeling & Simulation — Develop Contribution Smart Contract (NEAR)"
         - "Phase 1 — Economic Modeling & Simulation — Create Simulation Environment"
@@ -30,6 +31,13 @@ body:
         - "Phase 2 — Data Stream 3 — Image Metadata — On-Device AI & Mobile Proving"
         - "Phase 2 — Data Stream 3 — Image Metadata — Application Flow & Mobile Development"
         - "Future Work — Privacy-Preserving Technology Integration"
+        # --- CYPHERSHARE (Legacy/Maintenance) ---
+        - "--- CYPHERSHARE (Legacy/Maintenance) ---"
+        - "[Legacy] Refactor a UI component"
+        - "[Legacy] Fix bug in useCodex.ts hook"
+        - "[Legacy] Investigate Waku connection issues"
+        - "[Legacy] Improve Pyodide modal performance"
+        - "[Legacy] Other maintenance task"
     validations:
       required: true
 
