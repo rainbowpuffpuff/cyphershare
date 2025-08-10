@@ -1,0 +1,34 @@
+name: "✨ Feature Request"
+description: "Suggest a new feature or improvement"
+title: "feat: <short-description>"
+labels: ["feature"]
+assignees: []
+
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: "Motivation"
+      description: "Why is this needed? What problem does it solve?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe your idea, user story, or acceptance criteria."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "List other approaches tried or rejected."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional Context"
+      description: "Screenshots, links, or rationale"
