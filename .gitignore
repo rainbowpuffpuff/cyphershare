@@ -41,3 +41,5 @@ yarn-error.log*
 next-env.d.ts
 
 certificates
+data_and_python/first_fnirs_log.csv
+data_and_python/second_fnirs_log.csv
