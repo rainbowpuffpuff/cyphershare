@@ -54,3 +54,5 @@ data_and_python/PLOTS_*/
 
 # Ignore any files reassembled by the reconstruction script
 data_and_python/*_reconstructed.csv
+GEMINI.md
+TASKS.md
