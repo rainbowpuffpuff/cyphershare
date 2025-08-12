@@ -10,6 +10,23 @@ The project is in **Phase 1**, with foundational work split across several key f
 
 ---
 
+## **Immediate Next Steps**
+
+1.  **Review and Merge Pull Requests:**
+    *   **PR #12 (`chore/update-agent-submodule`):** Review and merge into `dev`. This updates a core piece of the project's architecture.
+    *   **PR #8 (`feature/staking-contract`):** After the submodule is merged, review this PR. It may need to be updated with the latest changes from `dev` before merging.
+
+2.  **Begin Work on Staking Contract v2 (Issue #9):**
+    *   Create a new branch off of `dev` (e.g., `feature/staking-v2-ai-check`).
+    *   Extend the `agent-next-boilerplate` by creating a new "tool" for AI-based verification.
+    *   Modify the `staking_contract` to allow a trusted agent to control the release of funds.
+
+3.  **Address Housekeeping Issues:**
+    *   **Fix `.gitignore` (Issue #11):** This is a small but important task that can be done at any time.
+    *   **Deploy the v1 Staking Contract:** Create a deployment script and document the process for getting the v1 contract onto a testnet.
+
+---
+
 ## **Active Development Branches (Last 10 Days)**
 
 This section provides a detailed look at the branches with the most recent activity, summarizing their purpose and latest changes.
