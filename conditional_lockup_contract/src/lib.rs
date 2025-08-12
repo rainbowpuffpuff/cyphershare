@@ -1,5 +1,28 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, Promise, NearToken};
+use near_sdk::serde::{Serialize};
+
+// Event structs for logging
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct LockFundsEvent<'a> {
+    pub user: &'a AccountId,
+    pub amount: &'a u128,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ReportConditionEvent {
+    pub condition_met: bool,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct WithdrawEvent<'a> {
+    pub recipient: &'a AccountId,
+    pub amount: &'a u128,
+}
+
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -27,8 +50,16 @@ impl ConditionalLockupContract {
     #[payable]
     pub fn lock_funds(&mut self) {
         assert!(self.user_account_id.is_none(), "Funds are already locked");
-        self.user_account_id = Some(env::predecessor_account_id());
-        self.locked_amount = env::attached_deposit().as_yoctonear();
+        let user = env::predecessor_account_id();
+        let amount = env::attached_deposit().as_yoctonear();
+        self.user_account_id = Some(user.clone());
+        self.locked_amount = amount;
+        
+        let event = LockFundsEvent {
+            user: &user,
+            amount: &amount,
+        };
+        env::log_str(&format!("EVENT_JSON:{}", serde_json::to_string(&event).unwrap()));
     }
 
     pub fn report_condition(&mut self, condition_met: bool) {
@@ -42,6 +73,11 @@ impl ConditionalLockupContract {
             "The condition has already been reported"
         );
         self.condition_was_met = Some(condition_met);
+
+        let event = ReportConditionEvent {
+            condition_met,
+        };
+        env::log_str(&format!("EVENT_JSON:{}", serde_json::to_string(&event).unwrap()));
     }
 
     pub fn withdraw(&mut self) {
@@ -51,19 +87,33 @@ impl ConditionalLockupContract {
         );
         let condition_met = self.condition_was_met.unwrap();
         if condition_met {
+            let user = self.user_account_id.as_ref().unwrap().clone();
             assert_eq!(
                 env::predecessor_account_id(),
-                self.user_account_id.as_ref().unwrap().clone(),
+                user,
                 "Only the user can withdraw the funds"
             );
-            Promise::new(self.user_account_id.as_ref().unwrap().clone()).transfer(NearToken::from_yoctonear(self.locked_amount));
+            Promise::new(user.clone()).transfer(NearToken::from_yoctonear(self.locked_amount));
+            
+            let event = WithdrawEvent {
+                recipient: &user,
+                amount: &self.locked_amount,
+            };
+            env::log_str(&format!("EVENT_JSON:{}", serde_json::to_string(&event).unwrap()));
         } else {
+            let beneficiary = self.beneficiary_id.clone();
             assert_eq!(
                 env::predecessor_account_id(),
-                self.beneficiary_id,
+                beneficiary,
                 "Only the beneficiary can withdraw the funds"
             );
-            Promise::new(self.beneficiary_id.clone()).transfer(NearToken::from_yoctonear(self.locked_amount));
+            Promise::new(beneficiary.clone()).transfer(NearToken::from_yoctonear(self.locked_amount));
+
+            let event = WithdrawEvent {
+                recipient: &beneficiary,
+                amount: &self.locked_amount,
+            };
+            env::log_str(&format!("EVENT_JSON:{}", serde_json::to_string(&event).unwrap()));
         }
     }
 }
@@ -71,7 +121,7 @@ impl ConditionalLockupContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::test_utils::{accounts, get_logs, VMContextBuilder};
     use near_sdk::{testing_env, NearToken};
 
     fn get_context(predecessor_account_id: AccountId, attached_deposit: NearToken) -> VMContextBuilder {
@@ -99,6 +149,12 @@ mod tests {
         contract.lock_funds();
         assert_eq!(contract.user_account_id, Some(accounts(0)));
         assert_eq!(contract.locked_amount, NearToken::from_near(10).as_yoctonear());
+
+        let expected_log = format!("EVENT_JSON:{}", serde_json::to_string(&LockFundsEvent {
+            user: &accounts(0),
+            amount: &NearToken::from_near(10).as_yoctonear(),
+        }).unwrap());
+        assert_eq!(get_logs()[0], expected_log);
     }
 
     #[test]
@@ -118,6 +174,11 @@ mod tests {
         let mut contract = ConditionalLockupContract::new(accounts(1), accounts(2));
         contract.report_condition(true);
         assert_eq!(contract.condition_was_met, Some(true));
+
+        let expected_log = format!("EVENT_JSON:{}", serde_json::to_string(&ReportConditionEvent {
+            condition_met: true,
+        }).unwrap());
+        assert_eq!(get_logs()[0], expected_log);
     }
 
     #[test]
@@ -153,6 +214,12 @@ mod tests {
             .account_balance(NearToken::from_near(10))
             .build());
         contract.withdraw();
+
+        let expected_log = format!("EVENT_JSON:{}", serde_json::to_string(&WithdrawEvent {
+            recipient: &accounts(0),
+            amount: &NearToken::from_near(10).as_yoctonear(),
+        }).unwrap());
+        assert_eq!(get_logs()[0], expected_log);
     }
 
     #[test]
@@ -169,6 +236,12 @@ mod tests {
             .account_balance(NearToken::from_near(10))
             .build());
         contract.withdraw();
+
+        let expected_log = format!("EVENT_JSON:{}", serde_json::to_string(&WithdrawEvent {
+            recipient: &accounts(1),
+            amount: &NearToken::from_near(10).as_yoctonear(),
+        }).unwrap());
+        assert_eq!(get_logs()[0], expected_log);
     }
 
     #[test]
