@@ -49,7 +49,7 @@ export class SwarmClient {
     this.baseUrl = baseUrl;
     this.endpointType = endpointType;
     this.postageBatchId = postageBatchId;
-    this.initializeBee();
+    // Defer initialization to first use
     console.log("=== SWARM CLIENT CONFIGURATION ===");
     console.log("Endpoint Type:", endpointType);
     console.log("Base URL:", baseUrl);
@@ -57,20 +57,22 @@ export class SwarmClient {
     console.log("================================");
   }
 
-  private initializeBee(): void {
+  private initializeBee(): boolean {
     try {
-      if (!this.baseUrl) {
-        console.error("Swarm API URL is not set.");
+      if (!this.baseUrl || !this.baseUrl.startsWith("http")) {
+        console.error("Swarm API URL is not valid.");
         this.bee = null;
         this.beeDebug = null;
-        return;
+        return false;
       }
       this.bee = new Bee(this.baseUrl);
       this.beeDebug = new BeeDev(this.baseUrl);
+      return true;
     } catch (error) {
       console.error("Error initializing Bee client:", error);
       this.bee = null;
       this.beeDebug = null;
+      return false;
     }
   }
 
@@ -82,9 +84,9 @@ export class SwarmClient {
     this.baseUrl = newUrl;
     this.endpointType = endpointType;
     this.postageBatchId = newPostageBatchId;
-    this.initializeBee();
     this.isActive = false;
     this.lastChecked = 0;
+    this.initializeBee(); // Re-initialize with new settings
     console.log("Configuration updated successfully");
     console.log("=================================");
   }
@@ -103,30 +105,33 @@ export class SwarmClient {
       return this.isActive;
     }
 
-    if (!this.bee) {
+    // Attempt to initialize bee if it's not already
+    if (!this.bee && !this.initializeBee()) {
       this.isActive = false;
       return false;
     }
 
     try {
-      const health = await this.bee.getHealth();
+      // At this point, this.bee should be non-null
+      const health = await this.bee!.getHealth();
       this.isActive = health.status === 'ok';
-      this.lastChecked = now;
-      return this.isActive;
     } catch (error) {
       console.error("Error checking Swarm node status:", error);
       this.isActive = false;
+    } finally {
       this.lastChecked = now;
-      return false;
     }
+    return this.isActive;
   }
 
   public async getNodeInfo(): Promise<SwarmNodeInfo | null> {
-    if (!this.bee || !this.beeDebug) return null;
+    if (!this.bee || !this.beeDebug) {
+      if (!this.initializeBee()) return null;
+    }
     try {
       const [nodeInfo, health] = await Promise.all([
-        this.beeDebug.getNodeInfo(),
-        this.bee.getHealth(),
+        this.beeDebug!.getNodeInfo(),
+        this.bee!.getHealth(),
       ]);
 
       return {
@@ -146,7 +151,7 @@ export class SwarmClient {
     onProgress?: (progress: number) => void
   ): Promise<{ success: boolean; id?: string; error?: string }> {
     if (!this.bee) {
-      return { success: false, error: "Swarm client not initialized." };
+       if (!this.initializeBee()) return { success: false, error: "Swarm client not initialized." };
     }
     if (!this.postageBatchId) {
       return { success: false, error: "Postage Batch ID is not configured." };
@@ -156,7 +161,7 @@ export class SwarmClient {
       // bee-js doesn't have a direct progress callback in the same way as XHR
       // We can call onProgress at the start and end.
       onProgress?.(0);
-      const result: UploadResult = await this.bee.uploadFile(this.postageBatchId, file);
+      const result: UploadResult = await this.bee!.uploadFile(this.postageBatchId, file);
       onProgress?.(100);
 
       return {
@@ -181,11 +186,11 @@ export class SwarmClient {
     error?: string;
   }> {
     if (!this.bee) {
-      return { success: false, error: "Swarm client not initialized." };
+      if (!this.initializeBee()) return { success: false, error: "Swarm client not initialized." };
     }
 
     try {
-      const fileData = await this.bee.downloadFile(fileId);
+      const fileData = await this.bee!.downloadFile(fileId);
       const blob = new Blob([fileData.data.toUint8Array()]);
 
       return {
@@ -256,11 +261,14 @@ export function useSwarm(
       try {
         isActive = await client.isNodeActive(forceCheck);
         setIsNodeActive(isActive);
-        setError(null);
+        if (!isActive) {
+            setError("Swarm node is not responding.");
+        } else {
+            setError(null);
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to check node status"
-        );
+        const errorMessage = err instanceof Error ? err.message : "Failed to check node status";
+        setError(errorMessage);
         setIsNodeActive(false);
       } finally {
         setIsLoading(false);
