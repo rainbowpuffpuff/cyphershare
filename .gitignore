@@ -56,5 +56,6 @@ data_and_python/PLOTS_*/
 data_and_python/*_reconstructed.csv
 # Staking contract build artifacts
 /staking_contract/target
+/conditional_lockup_contract/target
 GEMINI.md
 TASKS.md
