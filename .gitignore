@@ -54,6 +54,7 @@ data_and_python/PLOTS_*/
 
 # Ignore any files reassembled by the reconstruction script
 data_and_python/*_reconstructed.csv
-
 # Staking contract build artifacts
 /staking_contract/target
+GEMINI.md
+TASKS.md
