@@ -116,35 +116,40 @@ export const useWaku = ({
       }
 
       if (!connectedToAnyNode) {
-        throw new Error("Failed to connect to any bootstrap nodes");
+        console.error("Failed to connect to any bootstrap nodes. Waku functionality will be limited.");
+        setError("Could not connect to the Waku network. Please try again later.");
+        // Do not throw an error, allow the app to continue without a full Waku connection
       }
 
-      // Wait for peer connections with better error handling
-      console.log("Waiting for peers...");
-      try {
-        await Promise.race([
-          lightNode.waitForPeers([Protocols.LightPush, Protocols.Filter]),
-          new Promise((_, reject) =>
-            setTimeout(
-              () =>
-                reject(new Error("Peer connection timeout - please try again")),
-              15000
-            )
-          ),
-        ]);
-        console.log("Connected to peers successfully");
-      } catch (peerError: unknown) {
-        if (
-          peerError instanceof Error &&
-          peerError.message.includes("timeout")
-        ) {
+      // Only proceed with peer-dependent operations if connected
+      if (connectedToAnyNode) {
+        // Wait for peer connections with better error handling
+        console.log("Waiting for peers...");
+        try {
+          await Promise.race([
+            lightNode.waitForPeers([Protocols.LightPush, Protocols.Filter]),
+            new Promise((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(new Error("Peer connection timeout - please try again")),
+                15000
+              )
+            ),
+          ]);
+          console.log("Connected to peers successfully");
+        } catch (peerError: unknown) {
+          if (
+            peerError instanceof Error &&
+            peerError.message.includes("timeout")
+          ) {
+            throw new Error(
+              "Connection timed out. Please check your network connection and try again."
+            );
+          }
           throw new Error(
-            "Connection timed out. Please check your network connection and try again."
+            "Failed to establish peer connections. Please try again."
           );
         }
-        throw new Error(
-          "Failed to establish peer connections. Please try again."
-        );
       }
 
       // Create encoder and decoder
