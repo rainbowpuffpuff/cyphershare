@@ -34,7 +34,8 @@ This section provides a detailed look at the branches with the most recent activ
 #### **`feature/staking-contract`**
 *   **Last Commit:** August 12, 2025
 *   **Purpose:** To develop the v1 staking contract on the NEAR protocol.
-*   **Latest Changes:** The last commit added a comprehensive unit test suite, a `README.md` with build/test instructions, and configured the `Cargo.toml` to enable testing. This finalized the v1 of the contract.
+*   **Latest Changes:** Based on PR feedback, the contract has been updated to include a configurable reward rate, improved precision for reward calculation, a re-entrancy guard, and event logging. The `package.json` was also cleaned up and exhaustive tests were added.
+*   **Next Steps:** Merge PR after review.
 
 #### **`dev`**
 *   **Last Commit:** August 11, 2025

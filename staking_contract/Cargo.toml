@@ -7,11 +7,12 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "5.15.1"
+near-sdk = "5.1.0"
+primitive-types = "0.12.1"
 borsh = "1.5.7"
 
 [dev-dependencies]
-near-sdk = { version = "5.15.1", features = ["unit-testing"] }
+near-sdk = { version = "5.1.0", features = ["unit-testing"] }
 
 [profile.release]
 codegen-units = 1
