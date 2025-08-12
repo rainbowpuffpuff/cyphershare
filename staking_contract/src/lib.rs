@@ -72,3 +72,87 @@ impl StakingContract {
         U128(self.total_staked_balance)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env, NearToken};
+
+    fn get_context(predecessor_account_id: AccountId, attached_deposit: NearToken) -> VMContextBuilder {
+        let mut builder = VMContextBuilder::new();
+        builder
+            .predecessor_account_id(predecessor_account_id)
+            .attached_deposit(attached_deposit);
+        builder
+    }
+
+    #[test]
+    fn test_new() {
+        let context = get_context(accounts(0), NearToken::from_near(0));
+        testing_env!(context.build());
+        let contract = StakingContract::new(accounts(0));
+        assert_eq!(contract.owner_id, accounts(0));
+        assert_eq!(contract.reward_rate, 10);
+    }
+
+    #[test]
+    fn test_stake() {
+        let context = get_context(accounts(1), NearToken::from_near(10));
+        testing_env!(context.build());
+        let mut contract = StakingContract::new(accounts(0));
+        contract.stake();
+        assert_eq!(contract.get_staked_balance(accounts(1)).0, NearToken::from_near(10).as_yoctonear());
+        assert_eq!(contract.total_staked_balance, NearToken::from_near(10).as_yoctonear());
+    }
+
+    #[test]
+    fn test_unstake() {
+        let context = get_context(accounts(1), NearToken::from_near(10));
+        testing_env!(context.build());
+        let mut contract = StakingContract::new(accounts(0));
+        
+        // Deposit funds for rewards
+        testing_env!(get_context(accounts(0), NearToken::from_near(10)).build());
+        contract.deposit_funds();
+
+        // Stake
+        testing_env!(get_context(accounts(1), NearToken::from_near(10)).build());
+        contract.stake();
+
+        // Unstake
+        testing_env!(get_context(accounts(1), NearToken::from_near(0))
+            .account_balance(NearToken::from_near(20)) // contract needs funds to pay reward
+            .build());
+        contract.unstake(U128(NearToken::from_near(10).as_yoctonear()));
+        assert_eq!(contract.get_staked_balance(accounts(1)).0, 0);
+        assert_eq!(contract.total_staked_balance, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Not enough staked balance to unstake")]
+    fn test_unstake_not_enough_balance() {
+        let context = get_context(accounts(1), NearToken::from_near(10));
+        testing_env!(context.build());
+        let mut contract = StakingContract::new(accounts(0));
+        contract.unstake(U128(NearToken::from_near(10).as_yoctonear()));
+    }
+
+    #[test]
+    #[should_panic(expected = "Only owner can deposit funds")]
+    fn test_deposit_funds_not_owner() {
+        let context = get_context(accounts(1), NearToken::from_near(10));
+        testing_env!(context.build());
+        let mut contract = StakingContract::new(accounts(0));
+        contract.deposit_funds();
+    }
+
+    #[test]
+    #[should_panic(expected = "Only owner can withdraw funds")]
+    fn test_withdraw_funds_not_owner() {
+        let context = get_context(accounts(1), NearToken::from_near(10));
+        testing_env!(context.build());
+        let mut contract = StakingContract::new(accounts(0));
+        contract.withdraw_funds(U128(1));
+    }
+}
