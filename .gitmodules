@@ -1,0 +1,3 @@
+[submodule "agent-next-boilerplate"]
+	path = agent-next-boilerplate
+	url = https://github.com/BitteProtocol/agent-next-boilerplate.git

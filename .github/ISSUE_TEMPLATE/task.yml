@@ -1,0 +1,59 @@
+name: "🛠 Task"
+description: "Create a small, actionable work item from the roadmap"
+title: "task: <short-description>"
+labels: ["task"]
+body:
+  - type: dropdown
+    id: roadmap_item
+    attributes:
+      label: "Roadmap Item"
+      options:
+        # --- THINK2EARN (Future Work) ---
+        - "Phase 1 — Economic Modeling & Simulation — Design Shapley Value Algorithm"
+        - "Phase 1 — Economic Modeling & Simulation — Develop Contribution Smart Contract (NEAR)"
+        - "Phase 1 — Economic Modeling & Simulation — Create Simulation Environment"
+        - "Phase 1 — Economic Modeling & Simulation — Battle-Test Contracts"
+        - "Phase 1 — Economic Modeling & Simulation — Produce Simulation Report"
+        - "Phase 1 — Verifiable AI — Develop Shade Agent — Set up Shade Agent Environment"
+        - "Phase 1 — Verifiable AI — Develop Shade Agent — Containerize the Scoring Script"
+        - "Phase 1 — Verifiable AI — Develop Shade Agent — Deploy Basic Shade Agent"
+        - "Phase 1 — Verifiable AI — Develop Shade Agent — Integrate Shapley Scoring"
+        - "Phase 1 — Verifiable AI — Develop Shade Agent — On-Chain Attestation"
+        - "Phase 1 — Verifiable AI — Data Paywall — Develop JavaScript SDK for Swarm"
+        - "Phase 1 — Verifiable AI — Data Paywall — Design NEAR NFT as ACT"
+        - "Phase 1 — Verifiable AI — Data Paywall — Implement Listener Service"
+        - "Phase 1 — Verifiable AI — Data Paywall — End-to-End Test"
+        - "Phase 2 — Data Stream 1 — fNIRS — Methodological Research"
+        - "Phase 2 — Data Stream 1 — fNIRS — Hardware & Data Collection"
+        - "Phase 2 — Data Stream 1 — fNIRS — Model Development"
+        - "Phase 2 — Data Stream 2 — ZK-Email — On-Device AI & ZK Integration"
+        - "Phase 2 — Data Stream 2 — ZK-Email — Application Flow"
+        - "Phase 2 — Data Stream 3 — Image Metadata — On-Device AI & Mobile Proving"
+        - "Phase 2 — Data Stream 3 — Image Metadata — Application Flow & Mobile Development"
+        - "Future Work — Privacy-Preserving Technology Integration"
+        # --- CYPHERSHARE (Legacy/Maintenance) ---
+        - "--- CYPHERSHARE (Legacy/Maintenance) ---"
+        - "[Legacy] Refactor a UI component"
+        - "[Legacy] Fix bug in useCodex.ts hook"
+        - "[Legacy] Investigate Waku connection issues"
+        - "[Legacy] Improve Pyodide modal performance"
+        - "[Legacy] Other maintenance task"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Task Details"
+      description: "Briefly describe what needs to be done for this roadmap item."
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: "Definition of Done"
+      description: "What must be true for this task to be complete?"
+      placeholder: "- Code written\n- Tests pass\n- Documentation updated"
+    validations:
+      required: true
