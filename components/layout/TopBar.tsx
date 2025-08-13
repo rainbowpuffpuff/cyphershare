@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import WakuStatusIndicatorDot from "@/components/waku/WakuStatusIndicatorDot";
 
 export default function TopBar() {
   const [roomId, setRoomId] = useState("XYZ123");
@@ -57,10 +56,6 @@ export default function TopBar() {
               {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
             </Button>
           </div>
-          {/* Waku status dot*/}
-          {mounted && (
-            <WakuStatusIndicatorDot />
-          )}
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline" />
         </div>
       </div>

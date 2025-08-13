@@ -12,9 +12,7 @@ import {
 import { Settings, Server, Shield, Radio } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import TacoConfigPanel from "@/components/settings/TacoConfigPanel";
 import SwarmConfigPanel from './SwarmConfigPanel';
-import WakuConfigPanel from './WakuConfigPanel';
 
 export default function SettingsSheet() {
 
@@ -36,32 +34,18 @@ export default function SettingsSheet() {
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-6">
-          <Tabs defaultValue="encryption" className="w-full">
+          <Tabs defaultValue="storage" className="w-full">
             <TabsList className="flex flex-wrap w-full gap-1 mb-6 font-mono bg-muted rounded-lg min-h-[2rem]">
               
-              <TabsTrigger value="communication" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
-                <Radio size={14} className="mr-1" />
-                COMMUNICATION
-              </TabsTrigger>
               <TabsTrigger value="storage" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
                 <Server size={14} className="mr-1" />
                 STORAGE
               </TabsTrigger>
-              <TabsTrigger value="encryption" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
-                <Shield size={14} className="mr-1" />
-                ENCRYPTION
-              </TabsTrigger>
             </TabsList>
 
             <div className="space-y-8 px-1">
-            <TabsContent value="communication" className="mt-0">
-              <WakuConfigPanel />
-            </TabsContent>
             <TabsContent value="storage" className="mt-0">
               <SwarmConfigPanel />
-            </TabsContent>
-            <TabsContent value="encryption" className="mt-0">
-              <TacoConfigPanel />
             </TabsContent>
             </div>
           </Tabs>

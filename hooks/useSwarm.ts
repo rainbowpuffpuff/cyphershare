@@ -118,6 +118,7 @@ export class SwarmClient {
     } catch (error) {
       console.error("Error checking Swarm node status:", error);
       this.isActive = false;
+      throw error; // Re-throw to be caught by the hook
     } finally {
       this.lastChecked = now;
     }
@@ -300,10 +301,18 @@ export function useSwarm(
   );
 
   useEffect(() => {
-    checkNodeStatus();
+    checkNodeStatus().catch(err => {
+      console.error("Failed to check Swarm node status on mount:", err);
+      // The error state is already set within checkNodeStatus,
+      // so we just need to prevent the unhandled rejection crash.
+    });
+
     const intervalId = setInterval(() => {
-      checkNodeStatus();
+      checkNodeStatus().catch(err => {
+        console.error("Failed to check Swarm node status in interval:", err);
+      });
     }, 60000);
+
     return () => clearInterval(intervalId);
   }, [checkNodeStatus]);
 

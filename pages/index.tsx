@@ -2,9 +2,7 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { FileUpload } from "@/components/files/FileUpload";
 import { FileList } from "@/components/files/FileList";
-import WakuDebugConsole from "@/components/debug-consoles/WakuDebugConsole";
 import SwarmDebugConsole from "@/components/debug-consoles/SwarmDebugConsole";
-import TacoDebugConsole from "@/components/debug-consoles/TacoDebugConsole";
 import Head from "next/head";
 import { useState, useCallback } from "react"; // Added useCallback
 import { FileItem } from "@/types/files";
@@ -46,7 +44,7 @@ export default function Home() {
         <title>CypherShare</title>
         <meta
           name="description"
-          content="Simple filesharing using Codex, Waku, TACo, and Pyodide"
+          content="Simple filesharing using Swarm and Pyodide"
         />
         {/* Add other meta tags from your old index.tsx if desired */}
       </Head>
@@ -64,9 +62,7 @@ export default function Home() {
               processingPyFileId={processingPyFileId}
             />
           </div>
-          <WakuDebugConsole />
           <SwarmDebugConsole />
-          <TacoDebugConsole />
         </div>
       </MainLayout>
       {isPyodideModalOpen &&

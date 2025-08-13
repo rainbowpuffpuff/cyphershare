@@ -61,17 +61,6 @@ export function SwarmProvider({ children }: SwarmProviderProps) {
     downloadFile: swarmDownloadFile,
   } = useSwarm(swarmNodeUrl, swarmEndpointType, swarmPostageBatchId);
 
-  // Check Swarm node status on mount
-  useEffect(() => {
-    if (swarmNodeUrl && !isSwarmLoading && !isSwarmNodeActive) {
-      checkSwarmStatus(true).catch(() => {
-        toast.error("Failed to connect to Swarm node", {
-          description: "Please check your Swarm settings and ensure the node is running.",
-        });
-      });
-    }
-  }, [swarmNodeUrl, isSwarmLoading, isSwarmNodeActive, checkSwarmStatus]);
-
   // Type-safe wrapper for uploadFile to ensure File type
   const uploadFile = async (file: File, onProgress?: (progress: number) => void): Promise<UploadResponse> => {
     try {

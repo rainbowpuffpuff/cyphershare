@@ -19,11 +19,11 @@ declare global {
 // Define the context value type
 interface WalletContextType {
   walletConnected: boolean;
-  provider: ethers.providers.Web3Provider | null;
-  signer: ethers.providers.JsonRpcSigner | null;
+  provider: ethers.BrowserProvider | null;
+  signer: ethers.JsonRpcSigner | null;
   walletAddress: string;
   truncatedAddress: string;
-  connectWallet: () => Promise<ethers.providers.Web3Provider | null>;
+  connectWallet: () => Promise<ethers.BrowserProvider | null>;
   networkInfo: {
     name: string;
     chainId: number;
@@ -72,8 +72,8 @@ const truncateAddress = (address: string): string => {
 
 export function WalletProvider({ children }: WalletProviderProps) {
   const [walletConnected, setWalletConnected] = useState(false);
-  const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null);
-  const [signer, setSigner] = useState<ethers.providers.JsonRpcSigner | null>(null);
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
   const [walletAddress, setWalletAddress] = useState('');
   const [truncatedAddress, setTruncatedAddress] = useState('');
   const [networkInfo, setNetworkInfo] = useState<{
@@ -86,13 +86,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
     const checkConnection = async () => {
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const provider = new ethers.BrowserProvider(window.ethereum);
           const accounts = await provider.listAccounts();
           
           if (accounts.length > 0) {
             const address = accounts[0];
+            const signer = await provider.getSigner();
             setProvider(provider);
-            setSigner(provider.getSigner());
+            setSigner(signer);
             setWalletAddress(address);
             setTruncatedAddress(truncateAddress(address));
             setWalletConnected(true);
@@ -110,17 +111,17 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const connectWallet = useCallback(async () => {
     try {
       if (typeof window.ethereum !== 'undefined') {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const provider = new ethers.BrowserProvider(window.ethereum);
         
         // Request account access
         const accounts = await window.ethereum?.request?.<string[]>({ method: 'eth_requestAccounts' });
         const address = accounts?.[0] || '';
         
         // Check if we're on the correct network (Polygon Amoy testnet)
-        const { chainId } = await provider.getNetwork();
+        const network = await provider.getNetwork();
         const amoyChainId = 80002;
         
-        if (chainId !== amoyChainId) {
+        if (network.chainId !== amoyChainId) {
           try {
             // Try to switch to Amoy testnet
             await window.ethereum?.request?.({ 
@@ -150,13 +151,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
               throw switchError;
             }
           }
-          const network = await provider.getNetwork();
-          fillNetworkName(network);
-          setNetworkInfo({ name: network.name, chainId: network.chainId });
+          const updatedNetwork = await provider.getNetwork();
+          fillNetworkName(updatedNetwork);
+          setNetworkInfo({ name: updatedNetwork.name, chainId: Number(updatedNetwork.chainId) });
         }
         
+        const signer = await provider.getSigner();
         setProvider(provider);
-        setSigner(provider.getSigner());
+        setSigner(signer);
         setWalletAddress(address);
         setTruncatedAddress(truncateAddress(address));
         setWalletConnected(true);
@@ -177,7 +179,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
   // Handle account changes
   useEffect(() => {
     if (typeof window !== 'undefined' && window.ethereum) {
-      const handleAccountsChanged = (...args: string[]) => {
+      const handleAccountsChanged = async (...args: string[]) => {
         const accounts = args[0];
         if (accounts.length === 0) {
           // User disconnected their wallet
@@ -190,7 +192,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
           // User switched accounts, update the signer and address
           if (provider) {
             const newAddress = accounts[0];
-            setSigner(provider.getSigner());
+            const signer = await provider.getSigner();
+            setSigner(signer);
             setWalletAddress(newAddress);
             setTruncatedAddress(truncateAddress(newAddress));
           }
