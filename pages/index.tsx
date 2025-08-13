@@ -8,8 +8,10 @@ import { useState, useCallback } from "react"; // Added useCallback
 import { FileItem } from "@/types/files";
 import PyodideRunnerModal from "@/components/pyodide/PyodideRunnerModal";
 import { toast } from "sonner"; // For potential direct toasts
+import { useSettings } from "@/context/SettingsContext";
 
 export default function Home() {
+  const { isPublisher } = useSettings();
   const [isPyodideModalOpen, setIsPyodideModalOpen] = useState(false);
   const [selectedPyFileForModal, setSelectedPyFileForModal] =
     useState<FileItem | null>(null);
@@ -55,7 +57,7 @@ export default function Home() {
              <NodeInfo />
           </div>
           */}
-          <FileUpload />
+          {isPublisher && <FileUpload />}
           <div className="mt-6">
             <FileList
               onViewPyFile={handleViewPyFileRequest}

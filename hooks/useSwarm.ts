@@ -105,20 +105,21 @@ export class SwarmClient {
       return this.isActive;
     }
 
-    // Attempt to initialize bee if it's not already
-    if (!this.bee && !this.initializeBee()) {
+    // The initializeBee check is implicitly handled by the fetch,
+    // as an invalid URL will cause the fetch to fail.
+    if (!this.baseUrl) {
       this.isActive = false;
       return false;
     }
 
     try {
-      // At this point, this.bee should be non-null
-      const health = await this.bee!.getHealth();
-      this.isActive = health.status === 'ok';
+      const response = await fetch(this.baseUrl, { method: 'GET' });
+      this.isActive = response.ok; // Check if the status code is 2xx
     } catch (error) {
       console.error("Error checking Swarm node status:", error);
       this.isActive = false;
-      throw error; // Re-throw to be caught by the hook
+      // We will not re-throw here to prevent crashes, 
+      // the hook's checkNodeStatus will set the error state.
     } finally {
       this.lastChecked = now;
     }

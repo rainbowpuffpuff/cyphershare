@@ -5,6 +5,7 @@ export interface Settings {
   swarmNodeUrl: string;
   swarmEndpointType: "remote" | "local";
   swarmPostageBatchId: string;
+  isPublisher: boolean;
 }
 
 interface SettingsContextType extends Settings {
@@ -12,9 +13,10 @@ interface SettingsContextType extends Settings {
 }
 
 const defaultSettings: Settings = {
-  swarmNodeUrl: process.env.NEXT_PUBLIC_SWARM_NODE_URL || "http://localhost:1633",
-  swarmEndpointType: "local",
-  swarmPostageBatchId: process.env.NEXT_PUBLIC_SWARM_POSTAGE_BATCH_ID || "",
+  swarmNodeUrl: "https://api.gateway.ethswarm.org",
+  swarmEndpointType: "remote",
+  swarmPostageBatchId: "",
+  isPublisher: false,
 };
 
 const SettingsContext = createContext<SettingsContextType>({

@@ -9,12 +9,16 @@ import {
   SheetFooter,
   SheetClose,
 } from "@/components/ui/sheet";
-import { Settings, Server, Shield, Radio } from "lucide-react";
+import { Settings, Server, User, ToggleLeft, ToggleRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import SwarmConfigPanel from './SwarmConfigPanel';
+import { useSettings } from "@/context/SettingsContext";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
 
 export default function SettingsSheet() {
+  const { isPublisher, updateSettings } = useSettings();
 
   return (
     <Sheet>
@@ -34,9 +38,12 @@ export default function SettingsSheet() {
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-6">
-          <Tabs defaultValue="storage" className="w-full">
+          <Tabs defaultValue="general" className="w-full">
             <TabsList className="flex flex-wrap w-full gap-1 mb-6 font-mono bg-muted rounded-lg min-h-[2rem]">
-              
+              <TabsTrigger value="general" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
+                <User size={14} className="mr-1" />
+                GENERAL
+              </TabsTrigger>
               <TabsTrigger value="storage" className="text-xs border border-border min-h-[2rem] w-[156px] flex items-center justify-center">
                 <Server size={14} className="mr-1" />
                 STORAGE
@@ -44,9 +51,30 @@ export default function SettingsSheet() {
             </TabsList>
 
             <div className="space-y-8 px-1">
-            <TabsContent value="storage" className="mt-0">
-              <SwarmConfigPanel />
-            </TabsContent>
+              <TabsContent value="general" className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg border-border">
+                    <Label htmlFor="publisher-mode" className="flex flex-col gap-1">
+                      <span className="font-mono">Publisher Mode</span>
+                      <span className="text-xs font-normal text-muted-foreground">Enable uploading and content management features.</span>
+                    </Label>
+                    <Switch
+                      id="publisher-mode"
+                      checked={isPublisher}
+                      onCheckedChange={(checked) => updateSettings({ isPublisher: checked })}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="storage" className="mt-0">
+                {isPublisher ? (
+                  <SwarmConfigPanel />
+                ) : (
+                  <div className="text-sm text-center text-muted-foreground">
+                    Enable Publisher Mode to configure Swarm settings.
+                  </div>
+                )}
+              </TabsContent>
             </div>
           </Tabs>
         </div>

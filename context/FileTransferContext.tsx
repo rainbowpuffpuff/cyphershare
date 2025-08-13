@@ -19,6 +19,7 @@ import { prepareFileMetadata, copyToClipboard, downloadFileFromBlob } from "@/ut
 
 import { useSwarmContext } from "./SwarmContext";
 import { useWallet } from "./WalletContext";
+import { useSettings } from "./SettingsContext";
 
 //-----------------------------------------------------------------------------
 // Types
@@ -62,6 +63,7 @@ interface Props {
 }
 
 export const FileTransferProvider = ({ children }: Props): ReactElement => {
+  const { isPublisher } = useSettings();
   const { networkInfo } = useWallet();
 
   // Get Swarm functionality from SwarmContext
@@ -87,6 +89,13 @@ export const FileTransferProvider = ({ children }: Props): ReactElement => {
   //-----------------------------------------------------------------------------
   const sendFiles = useCallback(
     async (files: File[]): Promise<void> => {
+      if (!isPublisher) {
+        toast.error("Uploads are disabled", {
+          description: "Please enable Publisher mode in the settings to upload files.",
+        });
+        return;
+      }
+
       if (!isSwarmNodeActive) {
         setUploadError("Swarm node is not active");
         toast.error("Swarm node is not active. Cannot upload files.");
@@ -140,6 +149,7 @@ export const FileTransferProvider = ({ children }: Props): ReactElement => {
       }
     },
     [
+      isPublisher,
       isSwarmNodeActive,
       swarmUploadFile,
       addSentFile,
