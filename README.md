@@ -48,44 +48,44 @@ This project is licensed under the MIT License.
 
 # FileShare - Secure File Sharing Application
 
-A secure file sharing application built with Next.js, React, and TailwindCSS that integrates with Codex and Waku protocols.
+A secure file sharing application built with Next.js, React, and TailwindCSS that integrates with Swarm and Waku protocols.
 
 ## Features
 
 - Secure file sharing with end-to-end encryption
-- Integration with Codex and Waku protocols
-- Real-time status monitoring of Codex and Waku nodes
+- Integration with Swarm and Waku protocols
+- Real-time status monitoring of Swarm and Waku nodes
 - Customizable API endpoints
 - Modern, responsive UI with dark mode
 - Optional client-side encryption powered by TACo with customizable on-chain access conditions
 - Seamless Ethereum wallet connectivity (MetaMask) for signing encryption/decryption operations
 
-## Codex Integration
+## Swarm Integration
 
-The application integrates with Codex nodes through a dedicated client implementation. The integration includes:
+The application integrates with Swarm Bee nodes through a dedicated client implementation. The integration includes:
 
-- Real-time status monitoring of Codex nodes
-- Customizable API endpoint configuration
+- Real-time status monitoring of Swarm nodes
+- Customizable API endpoint and Postage Batch ID configuration
 - Visual indicators for node status (active/inactive)
 - Error handling and reporting
 
-### Codex Client Architecture
+### Swarm Client Architecture
 
-The Codex integration is implemented using a modular architecture:
+The Swarm integration is implemented using a modular architecture:
 
-1. **CodexClient Class and useCodex Hook** (`hooks/useCodex.ts`):
+1. **SwarmClient Class and useSwarm Hook** (`hooks/useSwarm.ts`):
 
-   - Contains the complete Codex implementation in a single file
-   - Handles all API requests to Codex nodes
+   - Contains the complete Swarm implementation in a single file
+   - Handles all API requests to Swarm nodes using `@ethersphere/bee-js`
    - Manages node status checking and caching
-   - Provides methods for interacting with Codex APIs
-   - Implements React hook for using the Codex client in components
+   - Provides methods for interacting with Swarm APIs (upload, download)
+   - Implements React hook for using the Swarm client in components
    - Manages state for node status, loading, and errors
-   - Provides methods for updating the API endpoint
+   - Provides methods for updating the API endpoint and Postage Batch ID
 
 2. **UI Integration**:
    - Visual indicators for node status
-   - Form for configuring the API endpoint
+   - Form for configuring the API endpoint and Postage Batch ID
    - Error reporting and status messages
 
 ## TACo Encryption & Access Control
@@ -93,7 +93,7 @@ The Codex integration is implemented using a modular architecture:
 The application uses **[TACo](https://github.com/nucypher/taco-web)** for client-side encryption and on-chain access control. The integration is encapsulated in `hooks/useTaco.ts` and is tightly coupled with the file-upload flow.
 
 Key points:
-- Files/plaintexts are encrypted in the browser _before_ they are uploaded to Codex or transmitted via Waku – i.e. only ciphertexts ever leave the client.
+- Files/plaintexts are encrypted in the browser _before_ they are uploaded to Swarm or transmitted via Waku – i.e. only ciphertexts ever leave the client.
 - Decryption happens on-demand when the data consumer/recipient pings a cohort of TACo nodes. Decryption material is only provisioned when the data consumer (in this example, authenticated via the signature of a connected wallet) satisfies the pre-specified TACo **Conditions**.
 - Helper utilities are provided for two starter TACo conditions types: 
   - **Positive balance** of POL (Polygon Amoy).
@@ -111,9 +111,9 @@ Key points:
 
 ## Configuration
 
-### Codex Node
+### Swarm Node
 
-By default, the application connects to a Codex node at `http://localhost:8080/api/codex`. You can change this in the settings panel.
+By default, the application connects to a Swarm Bee node at `http://localhost:1633`. You will also need to provide a valid Postage Batch ID. You can change these in the settings panel.
 
 ### Waku Node
 

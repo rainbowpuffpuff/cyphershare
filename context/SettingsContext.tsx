@@ -2,10 +2,10 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
 
 export interface Settings {
-  codexNodeUrl: string;
-  codexEndpointType: "remote" | "local";
-  wakuNodeUrl: string;
-  wakuNodeType: "light" | "relay";
+  swarmNodeUrl: string;
+  swarmEndpointType: "remote" | "local";
+  swarmPostageBatchId: string;
+  isPublisher: boolean;
 }
 
 interface SettingsContextType extends Settings {
@@ -13,10 +13,10 @@ interface SettingsContextType extends Settings {
 }
 
 const defaultSettings: Settings = {
-  codexNodeUrl: process.env.NEXT_PUBLIC_CODEX_REMOTE_API_URL || "http://localhost:8080/api/codex",
-  codexEndpointType: "remote",
-  wakuNodeUrl: "http://127.0.0.1:8645",
-  wakuNodeType: "light",
+  swarmNodeUrl: "https://api.gateway.ethswarm.org",
+  swarmEndpointType: "remote",
+  swarmPostageBatchId: "",
+  isPublisher: false,
 };
 
 const SettingsContext = createContext<SettingsContextType>({

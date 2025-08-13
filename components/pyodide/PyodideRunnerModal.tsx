@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { FileItem } from "@/types/files";
 import { useFileTransfer } from "@/context/FileTransferContext";
 import { useFileEncryption } from "@/hooks/useFileEncryption";
-import { useCodexContext } from "@/context/CodexContext";
+import { useSwarmContext } from "@/context/SwarmContext";
 import { Loader2 } from "lucide-react";
 import { usePyodide, PyodideFile } from "@/hooks/usePyodide"; // Import the new hook
 
@@ -54,8 +54,8 @@ export default function PyodideRunnerModal({
 
   const { sendFiles: sendOutputFiles, uploadingFiles } = useFileTransfer();
   const { decryptBlob } = useFileEncryption();
-  const { downloadFile: codexDownloadFileContent, isCodexNodeActive } =
-    useCodexContext();
+  const { downloadFile: swarmDownloadFileContent, isSwarmNodeActive } =
+    useSwarmContext();
 
   const outputFileNameGuess = pyodideOutputFilePath?.split("/").pop();
   const isOutputUploading = outputFileNameGuess
@@ -86,7 +86,7 @@ export default function PyodideRunnerModal({
     const fetchContent = async () => {
       toast.info(`Fetching ${pythonFile.name}...`);
       try {
-        const result = await codexDownloadFileContent(pythonFile.fileId!);
+        const result = await swarmDownloadFileContent(pythonFile.fileId!);
         if (!result.success || !result.data) {
           throw new Error(result.error || "Failed to download script.");
         }
@@ -114,7 +114,7 @@ export default function PyodideRunnerModal({
       }
     };
     fetchContent();
-  }, [isOpen, pythonFile, codexDownloadFileContent, decryptBlob]);
+  }, [isOpen, pythonFile, swarmDownloadFileContent, decryptBlob]);
 
   const handleRunScript = useCallback(async () => {
     if (!isPyodideReady) {
@@ -276,9 +276,9 @@ export default function PyodideRunnerModal({
   ]);
 
   const handleUploadOutput = useCallback(async () => {
-    if (!isPyodideReady || !pyodideOutputFilePath || !isCodexNodeActive) {
+    if (!isPyodideReady || !pyodideOutputFilePath || !isSwarmNodeActive) {
       toast.error(
-        "Cannot upload: Pyodide not ready, no output file, or Codex inactive."
+        "Cannot upload: Pyodide not ready, no output file, or Swarm inactive."
       );
       return;
     }
@@ -305,7 +305,7 @@ export default function PyodideRunnerModal({
     isPyodideReady,
     pyodideOutputFilePath,
     sendOutputFiles,
-    isCodexNodeActive,
+    isSwarmNodeActive,
     readFileFromFs,
   ]);
 
@@ -456,7 +456,7 @@ export default function PyodideRunnerModal({
               !isPyodideReady ||
               isScriptRunning ||
               !pyodideOutputFilePath ||
-              !isCodexNodeActive ||
+              !isSwarmNodeActive ||
               isOutputUploading
             }
           >

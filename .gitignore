@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# gemini
+.gemini.md
+GEMINI.md
+
 # vercel
 .vercel
 
@@ -41,6 +45,8 @@ yarn-error.log*
 next-env.d.ts
 
 certificates
+# Rust build artifacts
+conditional_lockup_contract/target/
 data_and_python/first_fnirs_log.csv
 data_and_python/second_fnirs_log.csv
 
@@ -58,3 +64,6 @@ data_and_python/*_reconstructed.csv
 /staking_contract/target
 GEMINI.md
 TASKS.md
+
+# Next.js build artifacts
+.next/
