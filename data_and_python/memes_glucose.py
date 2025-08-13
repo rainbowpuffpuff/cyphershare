@@ -18,7 +18,7 @@ import lightgbm as lgb
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge, ElasticNet
 from sklearn.svm import SVR
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split, TimeSeriesSplit, KFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, f_regression
@@ -104,14 +104,38 @@ MODELS_AND_PARAMS = {
 }
 
 # --- Experiment Configuration ---
-# Define which experiments to run
+CV_STRATEGY = 'TimeSeriesSplit'  # Options: 'TimeSeriesSplit', 'BlockedKFold', 'KFold'
+N_CV_SPLITS = 5
+CV_GAP_EPOCHS = 2 # Only used for BlockedKFold
 RUN_GENERALIZATION_EXPERIMENTS = True
 RUN_COMBINED_HOLDOUT_EXPERIMENT = True
 TRAIN_SPLIT_RATIO = 0.7 # For combined holdout experiment
 
 # ==============================================================================
-# --- Helper Functions ---
+# --- Helper Classes and Functions ---
 # ==============================================================================
+
+class BlockedKFold():
+    def __init__(self, n_splits=5, gap=0): self.n_splits, self.gap = n_splits, gap
+    def get_n_splits(self, X=None, y=None, groups=None): return self.n_splits
+    def split(self, X, y=None, groups=None):
+        n = len(X)
+        k_size = n // self.n_splits
+        indices = np.arange(n)
+        for i in range(self.n_splits):
+            start = i * k_size
+            end = start + k_size
+            test_indices = indices[start:end]
+            train_indices = np.concatenate([indices[:max(0, start - self.gap)], indices[end + self.gap:]])
+            yield train_indices, test_indices
+
+def get_cv_strategy(strategy_name, n_splits, gap):
+    if strategy_name == 'TimeSeriesSplit':
+        return TimeSeriesSplit(n_splits=n_splits)
+    elif strategy_name == 'BlockedKFold':
+        return BlockedKFold(n_splits=n_splits, gap=gap)
+    else: # Default to KFold
+        return KFold(n_splits=n_splits, shuffle=False)
 
 def plot_clarke_error_grid(y_true_mmol, y_pred_mmol, title, plots_folder):
     """Generates and saves a Clarke Error Grid plot."""
@@ -220,7 +244,7 @@ def evaluate_model(y_true, y_pred, model_name, experiment_name, plots_folder):
 # --- Experiment Runners ---
 # ==============================================================================
 
-def run_generalization_experiment(train_data, test_data, experiment_name):
+def run_generalization_experiment(train_data, test_data, experiment_name, cv_strategy):
     """
     Trains models on one session and tests on another.
     """
@@ -231,6 +255,7 @@ def run_generalization_experiment(train_data, test_data, experiment_name):
     print(f"--- Running Generalization Experiment: {experiment_name} ---")
     print(f"Training data shape: {X_train.shape}")
     print(f"Test data shape:     {X_test.shape}")
+    print(f"CV Strategy: {CV_STRATEGY}")
     print("=" * 70)
 
     plots_folder = os.path.join(BASE_DIR, f"PLOTS_{experiment_name}")
@@ -244,7 +269,7 @@ def run_generalization_experiment(train_data, test_data, experiment_name):
             ('regressor', config['model'])
         ])
 
-        grid_search = GridSearchCV(pipeline, config['params'], cv=3, n_jobs=-1, scoring='r2')
+        grid_search = GridSearchCV(pipeline, config['params'], cv=cv_strategy, n_jobs=-1, scoring='r2')
         grid_search.fit(X_train, y_train)
 
         print(f"Best parameters for {name}: {grid_search.best_params_}")
@@ -253,7 +278,7 @@ def run_generalization_experiment(train_data, test_data, experiment_name):
         y_pred = best_model.predict(X_test)
         evaluate_model(y_test, y_pred, name, experiment_name, plots_folder)
 
-def run_combined_holdout_experiment(s1_data, s2_data):
+def run_combined_holdout_experiment(s1_data, s2_data, cv_strategy):
     """
     Trains on a combined dataset and tests on holdout sets from each session.
     """
@@ -263,6 +288,7 @@ def run_combined_holdout_experiment(s1_data, s2_data):
     experiment_name = "Combined_Holdout"
     print("=" * 70)
     print(f"--- Running {experiment_name} Experiment ---")
+    print(f"CV Strategy: {CV_STRATEGY}")
     print("=" * 70)
 
     plots_folder = os.path.join(BASE_DIR, f"PLOTS_{experiment_name}")
@@ -286,7 +312,7 @@ def run_combined_holdout_experiment(s1_data, s2_data):
             ('regressor', config['model'])
         ])
 
-        grid_search = GridSearchCV(pipeline, config['params'], cv=3, n_jobs=-1, scoring='r2')
+        grid_search = GridSearchCV(pipeline, config['params'], cv=cv_strategy, n_jobs=-1, scoring='r2')
         grid_search.fit(X_train_combined, y_train_combined)
 
         print(f"Best parameters for {name}: {grid_search.best_params_}")
@@ -310,11 +336,13 @@ if __name__ == "__main__":
     s2_data = preprocess_and_feature_engineer(S2_FNIRS_PATH, S2_CGM_PATH, S2_CGM_COLUMN)
     print("--- Data Preprocessing Complete ---")
 
+    cv_strategy = get_cv_strategy(CV_STRATEGY, N_CV_SPLITS, CV_GAP_EPOCHS)
+
     if RUN_GENERALIZATION_EXPERIMENTS:
-        run_generalization_experiment(train_data=s1_data, test_data=s2_data, experiment_name="Train_S1_Test_S2")
-        run_generalization_experiment(train_data=s2_data, test_data=s1_data, experiment_name="Train_S2_Test_S1")
+        run_generalization_experiment(train_data=s1_data, test_data=s2_data, experiment_name="Train_S1_Test_S2", cv_strategy=cv_strategy)
+        run_generalization_experiment(train_data=s2_data, test_data=s1_data, experiment_name="Train_S2_Test_S1", cv_strategy=cv_strategy)
 
     if RUN_COMBINED_HOLDOUT_EXPERIMENT:
-        run_combined_holdout_experiment(s1_data=s1_data, s2_data=s2_data)
+        run_combined_holdout_experiment(s1_data=s1_data, s2_data=s2_data, cv_strategy=cv_strategy)
 
     print("\nAll experiments complete!")
