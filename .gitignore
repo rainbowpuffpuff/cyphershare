@@ -45,3 +45,5 @@ GEMINI.md
 next-env.d.ts
 
 certificates
+# Rust build artifacts
+conditional_lockup_contract/target/
