@@ -43,6 +43,24 @@ Testing
 Workflow & How to Run
 
 Follow these steps to replicate the analysis.
+
+Quick Run with Script
+---------------------
+
+For convenience, a shell script is provided to automate the entire process. It will reconstruct the data, activate the virtual environment, and run the analysis.
+
+1.  **Make the script executable:**
+    ```bash
+    chmod +x run_analysis.sh
+    ```
+2.  **Run the script:**
+    ```bash
+    ./run_analysis.sh
+    ```
+
+Manual Workflow
+---------------
+
 1. Prerequisites
 
 Ensure you have Python installed along with the necessary libraries. You can install them using pip:
