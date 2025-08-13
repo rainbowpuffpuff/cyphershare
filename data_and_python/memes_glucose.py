@@ -14,8 +14,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
+import lightgbm as lgb
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, ElasticNet
+from sklearn.svm import SVR
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -75,6 +77,28 @@ MODELS_AND_PARAMS = {
             'regressor__n_estimators': [100, 200],
             'regressor__learning_rate': [0.01, 0.1],
             'regressor__max_depth': [3, 5, 7],
+        }
+    },
+    'SVR': {
+        'model': SVR(),
+        'params': {
+            'regressor__C': [0.1, 1, 10],
+            'regressor__kernel': ['linear', 'rbf']
+        }
+    },
+    'ElasticNet': {
+        'model': ElasticNet(random_state=42),
+        'params': {
+            'regressor__alpha': [0.1, 1.0, 10],
+            'regressor__l1_ratio': [0.1, 0.5, 0.9]
+        }
+    },
+    'LightGBM': {
+        'model': lgb.LGBMRegressor(random_state=42, n_jobs=-1),
+        'params': {
+            'regressor__n_estimators': [100, 200],
+            'regressor__learning_rate': [0.01, 0.1],
+            'regressor__num_leaves': [31, 50]
         }
     }
 }
