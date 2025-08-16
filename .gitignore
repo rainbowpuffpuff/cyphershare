@@ -1,14 +1,12 @@
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules
 /.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+.pnp.js
+.yarn/install-state.gz
+/.venv/
 
 # testing
 /coverage
@@ -28,10 +26,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# local env files
+.env*.local
 
 # vercel
 .vercel
@@ -40,19 +37,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-certificates
-data_and_python/first_fnirs_log.csv
-data_and_python/second_fnirs_log.csv
+# rust
+/target/
+Cargo.lock
 
-# Python / Data Science Specific
-# -----------------------------
-# Ignore Python's cache directory
-data_and_python/__pycache__/
-
-# Ignore generated plot directories from the ML script
-data_and_python/PLOTS_*/
-
-# Ignore any files reassembled by the reconstruction script
+# python analysis data
+data_and_python/*_log.csv
 data_and_python/*_reconstructed.csv
 # Staking contract build artifacts
 /staking_contract/target

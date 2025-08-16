@@ -1,14 +1,17 @@
 // components/layout/TopBar.tsx
-import { Github, Edit, Check, Copy, Waypoints } from "lucide-react";
+import { Github, Edit, Check, Copy, Waypoints, Upload, Download, Shield } from "lucide-react";
 import SettingsSheet from "@/components/settings/SettingsSheet";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import WakuStatusIndicatorDot from "@/components/waku/WakuStatusIndicatorDot";
+import { useSettings } from "@/context/SettingsContext";
+import { useSwarmContext } from "@/context/SwarmContext";
 
 export default function TopBar() {
+  const { isPublisher } = useSettings();
+  const { uploadFile, downloadFile } = useSwarmContext();
   const [roomId, setRoomId] = useState("XYZ123");
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -23,6 +26,18 @@ export default function TopBar() {
     await navigator.clipboard.writeText(roomId);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleUpload = () => {
+    // Implement upload functionality
+  };
+
+  const handleDownload = () => {
+    // Implement download functionality
+  };
+
+  const handleCreatePaywall = () => {
+    // Implement create paywall functionality
   };
 
   return (
@@ -57,15 +72,24 @@ export default function TopBar() {
               {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
             </Button>
           </div>
-          {/* Waku status dot*/}
-          {mounted && (
-            <WakuStatusIndicatorDot />
-          )}
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-scanline" />
         </div>
       </div>
       <div className="flex items-center gap-4">
-
+        <Button variant="outline" size="sm" onClick={handleUpload}>
+          <Upload size={14} className="mr-2" />
+          Upload
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleDownload}>
+          <Download size={14} className="mr-2" />
+          Download
+        </Button>
+        {isPublisher && (
+          <Button variant="outline" size="sm" onClick={handleCreatePaywall}>
+            <Shield size={14} className="mr-2" />
+            Create Paywall
+          </Button>
+        )}
         <a
           href="https://github.com/hackyguru/cyphershare"
           target="_blank"
