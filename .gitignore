@@ -53,6 +53,4 @@ TASKS.md
 # Lockfiles
 package-lock.json
 pnpm-lock.yaml
-staking_contract/Cargo.lock
-GEMINI.md
 .env
