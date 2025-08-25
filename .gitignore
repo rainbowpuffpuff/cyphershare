@@ -47,10 +47,13 @@ data_and_python/*_reconstructed.csv
 # Staking contract build artifacts
 /staking_contract/target
 /conditional_lockup_contract/target
+/conditional_lockup_contract/Cargo.lock
 GEMINI.md
 TASKS.md
 
 # Lockfiles
 package-lock.json
 pnpm-lock.yaml
+staking_contract/Cargo.lock
+GEMINI.md
 .env
