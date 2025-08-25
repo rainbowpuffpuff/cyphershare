@@ -117,4 +117,42 @@ if __name__ == "__main__":
     print("--- This may open a new tab in your web browser. ---")
     show(lime_local)
 
+    print("\\n" + "="*50)
+    print("--- How to Interpret the LIME Explanation ---")
+    print("="*50)
+    print(
+        "The plot you see is a LIME (Local Interpretable Model-agnostic Explanations) visualization. "
+        "It explains *one single prediction* made by our RandomForest model.\\n"
+    )
+    print(
+        "1. **Top Section:** Shows the model's prediction for this specific data point, compared to the true, actual value."
+    )
+    print(
+        "2. **Main Plot (Feature Contributions):**"
+    )
+    print(
+        "   - **Y-axis:** Lists the most important features for *this specific prediction*."
+    )
+    print(
+        "   - **X-axis (Bars):** Shows how much each feature 'pushed' the prediction up or down."
+    )
+    print(
+        "     - Features with **orange bars** pushed the prediction towards a **lower** glucose value."
+    )
+    print(
+        "     - Features with **blue bars** pushed the prediction towards a **higher** glucose value."
+    )
+    print(
+        "   - The longer the bar, the stronger the feature's influence on this particular prediction.\\n"
+    )
+    print(
+        "**Why is this relevant?**\\n"
+        "For a 'Verifiable AI Platform', it's not enough for the model to be accurate; we must also be able to "
+        "understand *why* it makes the decisions it does. This kind of explanation helps us build trust in the model, "
+        "debug potential issues, and ensure it's not relying on strange or biased features. It's a key step "
+        "towards transparent and trustworthy AI."
+    )
+    print("="*50 + "\\n")
+
+
     print("--- InterpretML Explanation Example Complete ---")
