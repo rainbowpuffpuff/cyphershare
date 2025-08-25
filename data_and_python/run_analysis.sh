@@ -20,7 +20,7 @@ source "$VENV_DIR/bin/activate"
 
 # --- Step 2: Install Dependencies ---
 echo "--- Installing required Python packages ---"
-pip install pandas numpy matplotlib seaborn scikit-learn joblib xgboost lightgbm
+pip install pandas numpy matplotlib seaborn scikit-learn joblib xgboost lightgbm interpret lime
 
 # --- Step 3: Reconstruct Data Files ---
 echo "--- Reconstructing data files... ---"
